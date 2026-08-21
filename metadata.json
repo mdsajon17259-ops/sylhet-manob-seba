@@ -1,0 +1,6 @@
+{
+  "name": "সিলেট মানব সেবা সংঘঠন",
+  "description": "সিলেট মানব সেবা সংঘঠন (স্থাপিত : ১৫/০৮/২০২২ইং) - সদস্য ব্যবস্থাপনা, রক্তদান সেবা, জরুরি নোটিশ, অটো-ব্যালেন্স ফান্ড হিসাব এবং ইন-অ্যাপ এডমিন প্যানেল।",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
