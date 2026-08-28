@@ -5,7 +5,7 @@ import { FundRecord } from '../types';
 interface ExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: {
+  onSubmit?: (data: {
     description: string;
     amount: number;
     disbursedTo: string;
@@ -14,13 +14,23 @@ interface ExpenseModalProps {
     voucherNo?: string;
     notes?: string;
   }) => void;
-  initialData?: FundRecord | null;
+  onSave?: (data: {
+    description: string;
+    amount: number;
+    disbursedTo: string;
+    date: string;
+    category: string;
+    voucherNo?: string;
+    notes?: string;
+  }) => void;
+  initialData?: any;
 }
 
 export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  onSave,
   initialData
 }) => {
   const [description, setDescription] = useState('');
@@ -35,12 +45,21 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   useEffect(() => {
     if (initialData) {
       setDescription(initialData.description || '');
-      setAmount(initialData.amount || '');
+      setAmount(initialData.amount !== undefined && initialData.amount !== null && initialData.amount !== '' ? initialData.amount : '');
       setDisbursedTo(initialData.disbursedTo || initialData.memberName || '');
       setDate(initialData.date || new Date().toISOString().split('T')[0]);
       setCategory(initialData.category || 'ত্রাণ ও খাদ্য সহায়তা');
-      setVoucherNo(initialData.notes?.startsWith('ভাউচার: ') ? initialData.notes.replace('ভাউচার: ', '').split(' - ')[0] : '');
-      setNotes(initialData.notes || '');
+      
+      let vNo = initialData.voucherNo || '';
+      let nText = initialData.notes || '';
+      if (!vNo && initialData.notes && initialData.notes.includes('ভাউচার:')) {
+        const afterVoucher = initialData.notes.replace('ভাউচার:', '').trim();
+        const parts = afterVoucher.split(' - ');
+        vNo = parts[0]?.trim() || '';
+        nText = parts.slice(1).join(' - ').trim();
+      }
+      setVoucherNo(vNo);
+      setNotes(nText);
     } else {
       setDescription('');
       setAmount('');
@@ -65,20 +84,30 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setError('কার মাধ্যমে বা দায়িত্বে খরচ হয়েছে তার নাম লিখুন');
       return;
     }
-    if (amount === '' || Number(amount) <= 0) {
+    const numAmount = Number(amount);
+    if (amount === '' || isNaN(numAmount) || numAmount <= 0) {
       setError('সঠিক খরচের টাকার পরিমাণ লিখুন');
       return;
     }
 
-    onSubmit({
+    const payload = {
       description: description.trim(),
-      amount: Number(amount),
+      amount: numAmount,
       disbursedTo: disbursedTo.trim(),
-      date,
-      category,
-      voucherNo: voucherNo.trim() || undefined,
-      notes: notes.trim() || undefined
-    });
+      date: date || new Date().toISOString().split('T')[0],
+      category: category || 'ত্রাণ ও খাদ্য সহায়তা',
+      voucherNo: voucherNo?.trim() || undefined,
+      notes: notes?.trim() || undefined
+    };
+
+    const saveHandler = onSubmit || onSave;
+    if (typeof saveHandler === 'function') {
+      try {
+        saveHandler(payload);
+      } catch (err) {
+        console.error('Error submitting expense breakdown:', err);
+      }
+    }
 
     onClose();
   };
@@ -94,7 +123,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">
-                {initialData ? 'খরচের বিবরণ সম্পাদনা (Edit Expense)' : 'ফান্ড খরচের নতুন বিবরণী (Add Expense Breakdown)'}
+                {initialData ? 'খরচের বিবরণ সম্পাদনা (Edit Expense)' : 'ফান্ড খরচের নতুন বিবরণ (Add Expense Breakdown)'}
               </h3>
               <p className="text-xs text-slate-500">
                 সংগঠনের যেকোনো ব্যয়ের কারণ, দায়িত্বপ্রাপ্ত ব্যক্তি ও ভাউচার তথ্য লিপিবদ্ধ করুন
@@ -213,9 +242,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </label>
               <input
                 type="text"
+                id="expense-voucher-no"
                 value={voucherNo}
                 onChange={(e) => setVoucherNo(e.target.value)}
-                placeholder="যেমন: VR-2026/04"
                 className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 focus:outline-none"
               />
             </div>
@@ -227,9 +256,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </label>
               <input
                 type="text"
+                id="expense-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="যেমন: নগদ পরিশোধকৃত"
                 className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 focus:outline-none"
               />
             </div>
@@ -239,7 +268,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+              className="px-4 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
             >
               বাতিল
             </button>
@@ -249,7 +278,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer"
             >
               <Check className="w-4 h-4" />
-              <span>{initialData ? 'আপডেট সম্পন্ন করুন' : 'খরচের বিবরণী সংরক্ষণ করুন'}</span>
+              <span>{initialData ? 'আপডেট সম্পন্ন করুন' : 'খরচের বিবরণ সংরক্ষণ করুন'}</span>
             </button>
           </div>
         </form>

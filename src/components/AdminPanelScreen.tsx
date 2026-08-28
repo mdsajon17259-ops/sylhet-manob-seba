@@ -27,6 +27,7 @@ import {
   Clock,
   Pin,
   TrendingUp,
+  TrendingDown,
   FileText,
   CreditCard,
   ArrowRight,
@@ -36,6 +37,7 @@ import {
   Eye,
   Camera
 } from 'lucide-react';
+import { ExpenseModal } from './ExpenseModal';
 import {
   Member,
   BloodDonor,
@@ -177,6 +179,8 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
 
   const [editingFund, setEditingFund] = useState<FundRecord | null>(null);
   const [isAddFundOpen, setIsAddFundOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<FundRecord | null>(null);
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
 
   const [editingNotice, setEditingNotice] = useState<Notice | null>(null);
   const [isAddNoticeOpen, setIsAddNoticeOpen] = useState(false);
@@ -528,7 +532,8 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
           date: new Date().toISOString().split('T')[0],
           month: month.trim() || 'চলতি মাস',
           phone: phone.trim(),
-          notes: notes.trim() || (status === 'Paid' ? 'পরিশোধিত' : 'বকেয়া')
+          notes: notes.trim() || (status === 'Paid' ? 'পরিশোধিত' : status === 'Expense' ? 'সংগঠনের ব্যয়' : 'বকেয়া'),
+          type: status === 'Expense' ? 'expense' : undefined
         });
       } else if (setFunds) {
         const newFund: FundRecord = {
@@ -539,13 +544,82 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
           date: new Date().toISOString().split('T')[0],
           month: month.trim() || 'চলতি মাস',
           phone: phone.trim(),
-          notes: notes.trim() || (status === 'Paid' ? 'পরিশোধিত' : 'বকেয়া')
+          notes: notes.trim() || (status === 'Paid' ? 'পরিশোধিত' : status === 'Expense' ? 'সংগঠনের ব্যয়' : 'বকেয়া'),
+          type: status === 'Expense' ? 'expense' : undefined
         };
         setFunds(prev => [newFund, ...prev]);
       }
       setIsAddFundOpen(false);
       notifySuccess('নতুন ফান্ড এন্ট্রি যুক্ত হয়েছে এবং ব্যালেন্স স্বয়ংক্রিয়ভাবে আপডেট হয়েছে');
     }
+  };
+
+  const handleSaveExpense = (data: {
+    description: string;
+    amount: number;
+    disbursedTo: string;
+    date: string;
+    category: string;
+    voucherNo?: string;
+    notes?: string;
+  }) => {
+    let noteText: string | undefined = undefined;
+    const cleanVoucher = data.voucherNo ? data.voucherNo.trim() : '';
+    const cleanNotes = data.notes ? data.notes.trim() : '';
+
+    if (cleanVoucher && cleanNotes) {
+      noteText = `ভাউচার: ${cleanVoucher} - ${cleanNotes}`;
+    } else if (cleanVoucher) {
+      noteText = `ভাউচার: ${cleanVoucher}`;
+    } else if (cleanNotes) {
+      noteText = cleanNotes;
+    }
+
+    if (editingExpense && onEditFund) {
+      onEditFund({
+        ...editingExpense,
+        memberName: data.disbursedTo,
+        amount: data.amount,
+        status: 'Expense',
+        type: 'expense',
+        description: data.description,
+        date: data.date,
+        category: (data.category as any) || 'বিবিধ ও অন্যান্য ব্যয়',
+        disbursedTo: data.disbursedTo,
+        notes: noteText
+      });
+      notifySuccess('খরচের বিবরণ সফলভাবে আপডেট হয়েছে');
+    } else if (onAddFund) {
+      onAddFund({
+        memberName: data.disbursedTo,
+        amount: data.amount,
+        status: 'Expense',
+        type: 'expense',
+        description: data.description,
+        date: data.date,
+        category: (data.category as any) || 'বিবিধ ও অন্যান্য ব্যয়',
+        disbursedTo: data.disbursedTo,
+        notes: noteText
+      });
+      notifySuccess('নতুন খরচের বিবরণ সফলভাবে সংরক্ষিত হয়েছে');
+    } else if (setFunds) {
+      const newRecord: FundRecord = {
+        id: `f-${Date.now()}`,
+        memberName: data.disbursedTo,
+        amount: data.amount,
+        status: 'Expense',
+        type: 'expense',
+        description: data.description,
+        date: data.date,
+        category: (data.category as any) || 'বিবিধ ও অন্যান্য ব্যয়',
+        disbursedTo: data.disbursedTo,
+        notes: noteText
+      };
+      setFunds(prev => [newRecord, ...prev]);
+      notifySuccess('নতুন খরচের বিবরণ সফলভাবে সংরক্ষিত হয়েছে');
+    }
+    setIsExpenseModalOpen(false);
+    setEditingExpense(null);
   };
 
   const handleToggleFundStatus = (fundId: string) => {
@@ -1284,11 +1358,23 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
 
               <button
                 onClick={() => {
+                  setEditingExpense(null);
+                  setIsExpenseModalOpen(true);
+                }}
+                id="admin-add-expense-btn"
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl shadow-xs transition cursor-pointer"
+              >
+                <TrendingDown className="w-4 h-4 text-rose-600" />
+                <span>নতুন খরচ এন্ট্রি</span>
+              </button>
+
+              <button
+                onClick={() => {
                   setEditingFund(null);
                   setIsAddFundOpen(true);
                 }}
                 id="admin-add-fund-btn"
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl shadow-xs transition"
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl shadow-xs transition cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>নতুন ফান্ড এন্ট্রি যোগ</span>
@@ -1375,8 +1461,15 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                         </td>
                         <td className="p-3.5 text-right space-x-1.5">
                           <button
-                            onClick={() => setEditingFund(f)}
-                            className="p-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 transition"
+                            onClick={() => {
+                              if (f.status === 'Expense') {
+                                setEditingExpense(f);
+                                setIsExpenseModalOpen(true);
+                              } else {
+                                setEditingFund(f);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 transition cursor-pointer"
                             title="এডিট"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -2810,6 +2903,34 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
           </div>
         </div>
       )}
+
+      {/* EXPENSE MODAL (Add / Edit) */}
+      <ExpenseModal
+        isOpen={isExpenseModalOpen}
+        onClose={() => {
+          setIsExpenseModalOpen(false);
+          setEditingExpense(null);
+        }}
+        onSubmit={handleSaveExpense}
+        onSave={handleSaveExpense}
+        initialData={
+          editingExpense
+            ? {
+                description: editingExpense.description || '',
+                amount: editingExpense.amount,
+                disbursedTo: editingExpense.disbursedTo || editingExpense.memberName,
+                date: editingExpense.date,
+                category: editingExpense.category || 'ত্রাণ ও খাদ্য সহায়তা',
+                voucherNo: editingExpense.notes?.includes('ভাউচার:')
+                  ? editingExpense.notes.split('ভাউচার:')[1].split('-')[0].trim()
+                  : '',
+                notes: editingExpense.notes?.includes('ভাউচার:')
+                  ? (editingExpense.notes.split(' - ').length > 1 ? editingExpense.notes.split(' - ').slice(1).join(' - ').trim() : '')
+                  : (editingExpense.notes || '')
+              }
+            : null
+        }
+      />
 
       {/* NOTICE MODAL (Add / Edit) */}
       {(isAddNoticeOpen || editingNotice) && (

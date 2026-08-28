@@ -161,29 +161,45 @@ export const FundScreen: React.FC<FundScreenProps> = ({
     voucherNo?: string;
     notes?: string;
   }) => {
+    let noteText: string | undefined = undefined;
+    const cleanVoucher = data.voucherNo ? data.voucherNo.trim() : '';
+    const cleanNotes = data.notes ? data.notes.trim() : '';
+
+    if (cleanVoucher && cleanNotes) {
+      noteText = `ভাউচার: ${cleanVoucher} - ${cleanNotes}`;
+    } else if (cleanVoucher) {
+      noteText = `ভাউচার: ${cleanVoucher}`;
+    } else if (cleanNotes) {
+      noteText = cleanNotes;
+    }
+
     if (editingExpense && onEditFundRecord) {
       onEditFundRecord({
         ...editingExpense,
         memberName: data.disbursedTo,
         amount: data.amount,
         status: 'Expense',
+        type: 'expense',
         description: data.description,
         date: data.date,
-        category: data.category as any,
+        category: (data.category as any) || 'বিবিধ ও অন্যান্য ব্যয়',
         disbursedTo: data.disbursedTo,
-        notes: data.voucherNo ? `ভাউচার: ${data.voucherNo}${data.notes ? ` - ${data.notes}` : ''}` : data.notes
+        notes: noteText
       });
-    } else {
+    } else if (onAddFundRecord) {
       onAddFundRecord({
         memberName: data.disbursedTo,
         amount: data.amount,
         status: 'Expense',
+        type: 'expense',
         description: data.description,
         date: data.date,
-        category: data.category as any,
+        category: (data.category as any) || 'বিবিধ ও অন্যান্য ব্যয়',
         disbursedTo: data.disbursedTo,
-        notes: data.voucherNo ? `ভাউচার: ${data.voucherNo}${data.notes ? ` - ${data.notes}` : ''}` : data.notes
+        notes: noteText
       });
+      // Switch filter so user can immediately view the added expense breakdown in the table
+      setStatusFilter('Expense');
     }
     setIsExpenseModalOpen(false);
     setEditingExpense(null);
@@ -1671,6 +1687,7 @@ export const FundScreen: React.FC<FundScreenProps> = ({
           setIsExpenseModalOpen(false);
           setEditingExpense(null);
         }}
+        onSubmit={handleSaveExpense}
         onSave={handleSaveExpense}
         initialData={
           editingExpense
@@ -1679,13 +1696,15 @@ export const FundScreen: React.FC<FundScreenProps> = ({
                 amount: editingExpense.amount,
                 disbursedTo: editingExpense.disbursedTo || editingExpense.memberName,
                 date: editingExpense.date,
-                category: editingExpense.category || 'অফিস পরিচালনা',
+                category: editingExpense.category || 'ত্রাণ ও খাদ্য সহায়তা',
                 voucherNo: editingExpense.notes?.includes('ভাউচার:')
                   ? editingExpense.notes.split('ভাউচার:')[1].split('-')[0].trim()
                   : '',
-                notes: editingExpense.notes
+                notes: editingExpense.notes?.includes('ভাউচার:')
+                  ? (editingExpense.notes.split(' - ').length > 1 ? editingExpense.notes.split(' - ').slice(1).join(' - ').trim() : '')
+                  : (editingExpense.notes || '')
               }
-            : undefined
+            : null
         }
       />
     </div>
