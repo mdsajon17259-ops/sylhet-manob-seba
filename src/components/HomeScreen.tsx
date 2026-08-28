@@ -14,13 +14,15 @@ import {
   SlidersHorizontal,
   MapPin
 } from 'lucide-react';
-import { ActiveScreen, OrganizationStats, Notice, OrganizationProfile } from '../types';
-import { toBengaliNumber, formatTaka } from '../utils/helpers';
+import { ActiveScreen, OrganizationStats, Notice, OrganizationProfile, BloodDonor, BloodGroup } from '../types';
+import { toBengaliNumber, formatTaka, isDonorEligible } from '../utils/helpers';
 
 interface HomeScreenProps {
   profile: OrganizationProfile;
   onNavigate: (screen: ActiveScreen) => void;
   stats: OrganizationStats;
+  donors?: BloodDonor[];
+  onSelectBloodGroup?: (bg: string) => void;
   latestNotice?: Notice;
   isAdmin: boolean;
   openAdminModal: () => void;
@@ -31,6 +33,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   profile,
   onNavigate,
   stats,
+  donors = [],
+  onSelectBloodGroup,
   latestNotice,
   isAdmin,
   openAdminModal,
@@ -170,14 +174,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <div className="mt-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-lg sm:text-xl font-bold text-slate-900 group-hover:text-rose-700 transition-colors">
-                  ২. রক্ত দান (Blood Donation)
+                  ২. রক্তের গ্রুপ ও রক্তদান (Blood Group & Donors)
                 </h4>
                 <div className="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-rose-600 group-hover:text-white text-slate-600 flex items-center justify-center transition-all group-hover:translate-x-1">
                   <ChevronRight className="w-5 h-5" />
                 </div>
               </div>
               <p className="text-xs text-slate-600 mt-1">
-                রক্তদাতাদের তালিকা, পরবর্তী সম্ভাব্য তারিখ (+৯০ দিন) ও নতুন নিবন্ধন ফর্ম
+                ৮টি রক্তের গ্রুপের তালিকা, প্রস্তুত দাতা ডিরেক্টরি ও জরুরি রক্ত অনুসন্ধান
               </p>
             </div>
           </button>
@@ -241,6 +245,70 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </p>
             </div>
           </button>
+        </div>
+      </div>
+
+      {/* Quick Blood Group Directory Section */}
+      <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-600"></span>
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Droplet className="w-4 h-4 text-rose-600 fill-rose-600" />
+                রক্তের গ্রুপ অনুযায়ী খুঁজুন (Search & View by Blood Group)
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              যেকোনো রক্তের গ্রুপে ট্যাপ করে সরাসরি সেই গ্রুপের রক্তদাতাদের তালিকা ও মোবাইল নম্বর দেখুন
+            </p>
+          </div>
+
+          <button
+            onClick={() => onNavigate('blood')}
+            className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 group cursor-pointer"
+          >
+            <span>সম্পূর্ণ ব্লাড ডিরেক্টরি</span>
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2.5">
+          {(['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'] as BloodGroup[]).map((group) => {
+            const groupDonors = donors.filter(d => d.bloodGroup === group);
+            const count = groupDonors.length;
+            const readyCount = groupDonors.filter(d => isDonorEligible(d).eligible).length;
+
+            return (
+              <button
+                key={group}
+                id={`home-bg-btn-${group.replace('+', 'pos').replace('-', 'neg')}`}
+                onClick={() => {
+                  if (onSelectBloodGroup) {
+                    onSelectBloodGroup(group);
+                  } else {
+                    onNavigate('blood');
+                  }
+                }}
+                className="p-3 rounded-xl border border-slate-200 hover:border-rose-400 bg-slate-50 hover:bg-rose-50/50 transition flex flex-col items-center justify-center text-center cursor-pointer group shadow-2xs hover:shadow-xs"
+                title={`${group} গ্রুপের রক্তদাতা দেখুন`}
+              >
+                <div className="w-8 h-8 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-black text-sm group-hover:bg-rose-600 group-hover:text-white transition-colors">
+                  {group}
+                </div>
+                <span className="text-xs font-bold text-slate-700 mt-1.5">
+                  {toBengaliNumber(count)} জন
+                </span>
+                <span className="text-[10px] text-slate-400 mt-0.5">
+                  {readyCount > 0 ? (
+                    <span className="text-emerald-700 font-semibold">{toBengaliNumber(readyCount)} প্রস্তুত</span>
+                  ) : (
+                    'তালিকা'
+                  )}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

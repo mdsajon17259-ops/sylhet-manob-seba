@@ -31,6 +31,7 @@ import { exportSheetCSV } from '../utils/storage';
 
 interface BloodDonationScreenProps {
   donors: BloodDonor[];
+  initialBloodGroup?: string;
   onAddDonor: (donor: Omit<BloodDonor, 'id'>) => void;
   onEditDonor?: (donor: BloodDonor) => void;
   onDeleteDonor?: (id: string, name: string) => void;
@@ -40,6 +41,7 @@ interface BloodDonationScreenProps {
 
 export const BloodDonationScreen: React.FC<BloodDonationScreenProps> = ({
   donors,
+  initialBloodGroup,
   onAddDonor,
   onEditDonor,
   onDeleteDonor,
@@ -47,10 +49,17 @@ export const BloodDonationScreen: React.FC<BloodDonationScreenProps> = ({
   onBack,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedGroup, setSelectedGroup] = useState<string>('all');
+  const [selectedGroup, setSelectedGroup] = useState<string>(initialBloodGroup || 'all');
   const [onlyEligible, setOnlyEligible] = useState<boolean>(false);
   const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  // Sync initialBloodGroup if updated from parent navigation
+  React.useEffect(() => {
+    if (initialBloodGroup) {
+      setSelectedGroup(initialBloodGroup);
+    }
+  }, [initialBloodGroup]);
 
   // Form states
   const [donorName, setDonorName] = useState('');
@@ -172,11 +181,11 @@ export const BloodDonationScreen: React.FC<BloodDonationScreenProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-600"></span>
-              <span className="text-xs font-semibold text-rose-700">পতেঙ্গা, চট্টগ্রাম • রক্তদান সেবা</span>
+              <span className="text-xs font-semibold text-rose-700">সিলেট মানব সেবা সংগঠন • রক্তের গ্রুপ ও রক্তদাতা সেবা</span>
             </div>
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <Droplet className="w-5 h-5 text-rose-600 fill-rose-600" />
-              রক্ত দান ও দাতা ডিরেক্টরি
+              রক্তের গ্রুপ ও রক্তদান ডিরেক্টরি
             </h2>
           </div>
         </div>
@@ -205,6 +214,86 @@ export const BloodDonationScreen: React.FC<BloodDonationScreenProps> = ({
           )}
         </div>
       </div>
+
+      {/* 8 Blood Groups Interactive Overview Cards */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            <Droplet className="w-4 h-4 text-rose-600 fill-rose-600" />
+            <h3 className="text-sm font-bold text-slate-800">
+              রক্তের গ্রুপ অনুযায়ী রক্তদাতা ডিরেক্টরি (Blood Group Selector)
+            </h3>
+            <span className="text-xs text-slate-400 font-normal hidden sm:inline">• নির্দিষ্ট গ্রুপে ক্লিক করে ফিল্টার করুন</span>
+          </div>
+
+          {selectedGroup !== 'all' && (
+            <button
+              onClick={() => setSelectedGroup('all')}
+              className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg border border-rose-200 transition"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>ফিল্টার বাতিল (সব দেখুন)</span>
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+          {(['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'] as BloodGroup[]).map((group) => {
+            const groupDonors = donors.filter(d => d.bloodGroup === group);
+            const count = groupDonors.length;
+            const readyCount = groupDonors.filter(d => isDonorEligible(d).eligible).length;
+            const isSelected = selectedGroup === group;
+
+            return (
+              <button
+                key={group}
+                id={`bg-selector-${group.replace('+', 'pos').replace('-', 'neg')}`}
+                onClick={() => setSelectedGroup(isSelected ? 'all' : group)}
+                className={`p-2.5 rounded-xl border-2 transition text-center flex flex-col items-center justify-center cursor-pointer ${
+                  isSelected
+                    ? 'border-rose-600 bg-rose-50 shadow-xs ring-2 ring-rose-400'
+                    : 'border-slate-200 hover:border-rose-300 hover:bg-rose-50/40 bg-slate-50/70'
+                }`}
+                title={`${group} গ্রুপের রক্তদাতা ফিল্টার করুন`}
+              >
+                <span className={`text-base font-black ${isSelected ? 'text-rose-700' : 'text-slate-800'}`}>
+                  {group}
+                </span>
+                <span className="text-[11px] font-semibold text-slate-500 mt-0.5">
+                  {toBengaliNumber(count)} জন
+                </span>
+                {readyCount > 0 ? (
+                  <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded-full mt-1">
+                    {toBengaliNumber(readyCount)} প্রস্তুত
+                  </span>
+                ) : (
+                  <span className="text-[9px] text-slate-400 mt-1">
+                    {count > 0 ? 'অপেক্ষমান' : 'খালি'}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Active Blood Group Alert Banner */}
+      {selectedGroup !== 'all' && (
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-center justify-between text-xs text-rose-800 animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping flex-shrink-0"></span>
+            <span>
+              বর্তমানে ফিল্টার করা হয়েছে: <strong>{selectedGroup}</strong> রক্তের গ্রুপের রক্তদাতাগণ (পাওয়া গেছে <strong>{toBengaliNumber(filteredDonors.length)}</strong> জন)
+            </span>
+          </div>
+          <button
+            onClick={() => setSelectedGroup('all')}
+            className="text-rose-700 hover:text-rose-900 underline font-bold whitespace-nowrap ml-2 cursor-pointer"
+          >
+            সকল রক্তদাতা দেখুন
+          </button>
+        </div>
+      )}
 
       {/* Search & Filter Controls */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">

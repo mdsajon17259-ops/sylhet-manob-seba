@@ -6,7 +6,12 @@ import {
   ArrowLeft,
   Settings,
   MapPin,
-  Calendar
+  Calendar,
+  Home,
+  Users,
+  Droplet,
+  BellRing,
+  Wallet
 } from 'lucide-react';
 import { ActiveScreen, OrganizationProfile } from '../types';
 import orgLogo from '../assets/images/org_logo_1787709579485.jpg';
@@ -137,6 +142,84 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
       </div>
+
+      {/* Desktop / Tablet Navigation Menu Bar */}
+      <nav className="hidden sm:block bg-emerald-900/80 border-t border-emerald-600/40">
+        <div className="max-w-6xl mx-auto px-4 flex items-center justify-between gap-2 py-1.5">
+          <div className="flex items-center gap-1.5 text-xs">
+            <button
+              onClick={() => setActiveScreen('home')}
+              id="desktop-nav-home"
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeScreen === 'home'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-emerald-100 hover:bg-emerald-800/80 hover:text-white'
+              }`}
+            >
+              <Home className="w-3.5 h-3.5" />
+              <span>হোম</span>
+            </button>
+
+            <button
+              onClick={() => setActiveScreen('members')}
+              id="desktop-nav-members"
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeScreen === 'members'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-emerald-100 hover:bg-emerald-800/80 hover:text-white'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>সদস্য তালিকা</span>
+            </button>
+
+            <button
+              onClick={() => setActiveScreen('blood')}
+              id="desktop-nav-blood"
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeScreen === 'blood'
+                  ? 'bg-rose-600 text-white shadow-xs ring-1 ring-rose-400'
+                  : 'text-rose-200 bg-rose-950/40 hover:bg-rose-900/60 hover:text-white border border-rose-500/40'
+              }`}
+              title="রক্তের গ্রুপ ও রক্তদাতা ডিরেক্টরি দেখুন"
+            >
+              <Droplet className="w-3.5 h-3.5 fill-current" />
+              <span>রক্তের গ্রুপ (Blood Group)</span>
+            </button>
+
+            <button
+              onClick={() => setActiveScreen('notices')}
+              id="desktop-nav-notices"
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeScreen === 'notices'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-emerald-100 hover:bg-emerald-800/80 hover:text-white'
+              }`}
+            >
+              <BellRing className="w-3.5 h-3.5" />
+              <span>জরুরি নোটিশ</span>
+            </button>
+
+            <button
+              onClick={() => setActiveScreen('fund')}
+              id="desktop-nav-fund"
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeScreen === 'fund'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-emerald-100 hover:bg-emerald-800/80 hover:text-white'
+              }`}
+            >
+              <Wallet className="w-3.5 h-3.5" />
+              <span>ফান্ড হিসাব</span>
+            </button>
+          </div>
+
+          <div className="text-[11px] text-emerald-200 font-medium hidden md:flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>সিলেট মানবসেবা সংগঠন ডিজিটাল পোর্টাল</span>
+          </div>
+        </div>
+      </nav>
     </header>
   );
 };

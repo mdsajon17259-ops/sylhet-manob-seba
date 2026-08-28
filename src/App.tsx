@@ -54,6 +54,7 @@ export default function App() {
   const [funds, setFunds] = useState<FundRecord[]>(() => loadFunds());
   const [manualTotalBalance, setManualTotalBalance] = useState<number | null>(() => loadManualTotalBalance());
   const [paymentConfig, setPaymentConfig] = useState<PaymentGatewayConfig>(() => loadPaymentSettings());
+  const [selectedBloodGroupFilter, setSelectedBloodGroupFilter] = useState<string>('all');
 
   // Modals
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
@@ -233,9 +234,18 @@ export default function App() {
           <HomeScreen
             profile={profile}
             onNavigate={(screen) => {
+              if (screen === 'blood') {
+                setSelectedBloodGroupFilter('all');
+              }
               setActiveScreen(screen);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
+            onSelectBloodGroup={(bg) => {
+              setSelectedBloodGroupFilter(bg);
+              setActiveScreen('blood');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            donors={donors}
             stats={stats}
             latestNotice={latestNotice}
             isAdmin={isAdmin}
@@ -258,11 +268,15 @@ export default function App() {
         {activeScreen === 'blood' && (
           <BloodDonationScreen
             donors={donors}
+            initialBloodGroup={selectedBloodGroupFilter}
             onAddDonor={handleAddDonor}
             onEditDonor={handleEditDonor}
             onDeleteDonor={handleDeleteDonor}
             isAdmin={isAdmin}
-            onBack={() => setActiveScreen('home')}
+            onBack={() => {
+              setSelectedBloodGroupFilter('all');
+              setActiveScreen('home');
+            }}
           />
         )}
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Users, BellRing, Wallet } from 'lucide-react';
+import { Home, Users, Droplet, BellRing, Wallet } from 'lucide-react';
 import { ActiveScreen } from '../types';
 
 interface BottomNavProps {
@@ -13,7 +13,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   setActiveScreen,
   noticeCount = 0,
 }) => {
-  const navItems: { id: ActiveScreen; label: string; icon: React.ReactNode; badge?: number }[] = [
+  const navItems: { id: ActiveScreen; label: string; icon: React.ReactNode; badge?: number; isBlood?: boolean }[] = [
     {
       id: 'home',
       label: 'হোম',
@@ -23,6 +23,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       id: 'members',
       label: 'সদস্য তালিকা',
       icon: <Users className="w-5 h-5" />,
+    },
+    {
+      id: 'blood',
+      label: 'রক্তের গ্রুপ',
+      icon: <Droplet className="w-5 h-5" />,
+      isBlood: true,
     },
     {
       id: 'notices',
@@ -38,8 +44,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg px-2 py-1.5 sm:hidden">
-      <div className="max-w-md mx-auto grid grid-cols-4 gap-1">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg px-1.5 py-1.5 sm:hidden">
+      <div className="max-w-md mx-auto grid grid-cols-5 gap-1">
         {navItems.map((item) => {
           const isActive = activeScreen === item.id;
           return (
@@ -49,11 +55,21 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               onClick={() => setActiveScreen(item.id)}
               className={`relative flex flex-col items-center justify-center py-1 rounded-xl transition-all cursor-pointer ${
                 isActive
-                  ? 'text-emerald-700 font-bold'
+                  ? item.isBlood
+                    ? 'text-rose-600 font-bold'
+                    : 'text-emerald-700 font-bold'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <div className={`relative p-1 rounded-lg ${isActive ? 'bg-emerald-50 text-emerald-700' : ''}`}>
+              <div
+                className={`relative p-1 rounded-lg transition-colors ${
+                  isActive
+                    ? item.isBlood
+                      ? 'bg-rose-50 text-rose-600'
+                      : 'bg-emerald-50 text-emerald-700'
+                    : ''
+                }`}
+              >
                 {item.icon}
                 {Boolean(item.badge && item.badge > 0) && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center shadow-xs">
@@ -61,7 +77,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   </span>
                 )}
               </div>
-              <span className="text-[11px] tracking-tight truncate max-w-full">
+              <span className="text-[10px] tracking-tight truncate max-w-full font-medium">
                 {item.label}
               </span>
             </button>
