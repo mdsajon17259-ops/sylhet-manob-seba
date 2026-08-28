@@ -19,8 +19,8 @@ import {
   Camera,
   Image as ImageIcon
 } from 'lucide-react';
-import { Member, BloodGroup } from '../types';
-import { toBengaliNumber, getBloodGroupBadge, sanitizePhone } from '../utils/helpers';
+import { Member } from '../types';
+import { toBengaliNumber, sanitizePhone } from '../utils/helpers';
 import { exportSheetCSV } from '../utils/storage';
 
 interface MemberListScreenProps {
@@ -41,7 +41,6 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
   onBack,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedBloodGroup, setSelectedBloodGroup] = useState<string>('all');
   const [selectedDesignation, setSelectedDesignation] = useState<string>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
@@ -51,7 +50,6 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
   const [name, setName] = useState('');
   const [designation, setDesignation] = useState('');
   const [phone, setPhone] = useState('');
-  const [bloodGroup, setBloodGroup] = useState<BloodGroup>('A+');
   const [area, setArea] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
   const [formError, setFormError] = useState('');
@@ -87,12 +85,11 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
         m.designation.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (m.area && m.area.toLowerCase().includes(searchTerm.toLowerCase()));
       
-      const matchesBlood = selectedBloodGroup === 'all' || m.bloodGroup === selectedBloodGroup;
       const matchesDesignation = selectedDesignation === 'all' || m.designation === selectedDesignation;
 
-      return matchesSearch && matchesBlood && matchesDesignation;
+      return matchesSearch && matchesDesignation;
     });
-  }, [members, searchTerm, selectedBloodGroup, selectedDesignation]);
+  }, [members, searchTerm, selectedDesignation]);
 
   const handleCopyPhone = (phoneNumber: string) => {
     navigator.clipboard.writeText(phoneNumber);
@@ -101,18 +98,25 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
   };
 
   const handleOpenEdit = (m: Member) => {
-    if (onEditMember) {
-      onEditMember(m);
-    } else {
-      setEditingMember(m);
-      setName(m.name);
-      setDesignation(m.designation);
-      setPhone(m.phone);
-      setBloodGroup(m.bloodGroup);
-      setArea(m.area || 'পতেঙ্গা, চট্টগ্রাম');
-      setPhotoUrl(m.photoUrl || '');
-      setIsAddModalOpen(true);
-    }
+    setEditingMember(m);
+    setName(m.name);
+    setDesignation(m.designation);
+    setPhone(m.phone);
+    setArea(m.area || 'পতেঙ্গা, চট্টগ্রাম');
+    setPhotoUrl(m.photoUrl || '');
+    setFormError('');
+    setIsAddModalOpen(true);
+  };
+
+  const handleOpenAdd = () => {
+    setEditingMember(null);
+    setName('');
+    setDesignation('');
+    setPhone('');
+    setArea('পতেঙ্গা, চট্টগ্রাম');
+    setPhotoUrl('');
+    setFormError('');
+    setIsAddModalOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -130,22 +134,22 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
       return;
     }
 
-    if (editingMember && onEditMember) {
-      onEditMember({
-        ...editingMember,
-        name: name.trim(),
-        designation: designation.trim(),
-        phone: phone.trim(),
-        bloodGroup,
-        area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
-        photoUrl: photoUrl.trim() || undefined,
-      });
+    if (editingMember) {
+      if (onEditMember) {
+        onEditMember({
+          ...editingMember,
+          name: name.trim(),
+          designation: designation.trim(),
+          phone: phone.trim(),
+          area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
+          photoUrl: photoUrl.trim() || undefined,
+        });
+      }
     } else {
       onAddMember({
         name: name.trim(),
         designation: designation.trim(),
         phone: phone.trim(),
-        bloodGroup,
         area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
         photoUrl: photoUrl.trim() || undefined,
         joinDate: new Date().toISOString().split('T')[0],
@@ -156,7 +160,6 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
     setName('');
     setDesignation('');
     setPhone('');
-    setBloodGroup('A+');
     setArea('');
     setPhotoUrl('');
     setEditingMember(null);
@@ -203,18 +206,9 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
           {/* Admin Only: Add Member Button */}
           {isAdmin && (
             <button
-              onClick={() => {
-                setEditingMember(null);
-                setName('');
-                setDesignation('');
-                setPhone('');
-                setBloodGroup('A+');
-                setArea('পতেঙ্গা, চট্টগ্রাম');
-                setPhotoUrl('');
-                setIsAddModalOpen(true);
-              }}
+              onClick={handleOpenAdd}
               id="members-add-new-btn"
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>নতুন সদস্য যোগ</span>
@@ -225,57 +219,36 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
 
       {/* Search & Filters */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-        <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            id="members-search-input"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="নাম, পদবি, এলাকা বা ফোন নম্বর দিয়ে খুঁজুন..."
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Filter Pills */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 text-xs">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
-            <span className="text-slate-500 font-medium whitespace-nowrap flex items-center gap-1">
-              <Filter className="w-3 h-3" />
-              রক্তের গ্রুপ:
-            </span>
-            {['all', 'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(bg => (
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              id="members-search-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="নাম, পদবি, এলাকা বা ফোন নম্বর দিয়ে সদস্য খুঁজুন..."
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+            />
+            {searchTerm && (
               <button
-                key={bg}
-                onClick={() => setSelectedBloodGroup(bg)}
-                id={`filter-bg-${bg}`}
-                className={`px-2.5 py-1 rounded-lg font-semibold transition whitespace-nowrap ${
-                  selectedBloodGroup === bg
-                    ? 'bg-emerald-700 text-white shadow-2xs'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
-                {bg === 'all' ? 'সকল' : bg}
+                <X className="w-4 h-4" />
               </button>
-            ))}
+            )}
           </div>
 
           {/* Designation Dropdown */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 font-medium whitespace-nowrap">পদবি:</span>
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+            <Filter className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-xs text-slate-500 font-medium whitespace-nowrap">পদবি:</span>
             <select
               value={selectedDesignation}
               onChange={(e) => setSelectedDesignation(e.target.value)}
               id="filter-designation-select"
-              className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="bg-transparent text-xs text-slate-700 font-semibold focus:outline-none cursor-pointer"
             >
               <option value="all">সকল পদবি ({toBengaliNumber(members.length)})</option>
               {designations.map(des => (
@@ -289,7 +262,7 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
       {/* Member Cards Grid */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1 text-xs text-slate-500">
-          <span>মোট সদস্য: <strong className="text-slate-800">{toBengaliNumber(filteredMembers.length)}</strong> জন</span>
+          <span>মোট সদস্য: <strong className="text-slate-800 font-bold">{toBengaliNumber(filteredMembers.length)}</strong> জন</span>
           <span>ঠিকানা: পতেঙ্গা, চট্টগ্রাম</span>
         </div>
 
@@ -299,46 +272,42 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
               <Users className="w-8 h-8" />
             </div>
             <h4 className="text-base font-bold text-slate-800">
-              সদস্য তালিকা বর্তমানে সম্পূর্ণ খালি
+              {searchTerm || selectedDesignation !== 'all' ? 'কোনো সদস্য পাওয়া যায়নি' : 'সদস্য তালিকা বর্তমানে সম্পূর্ণ খালি'}
             </h4>
             <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
-              সংগঠনে এখনও কোনো সদস্য অন্তর্ভুক্ত করা হয়নি। অ্যাডমিন প্যানেল থেকে লগইন করে নতুন সদস্যদের নাম, পদবি, মোবাইল নম্বর ও ছবি যুক্ত করুন।
+              {searchTerm || selectedDesignation !== 'all' 
+                ? 'আপনার সার্চ বা ফিল্টারের সাথে মিলে এমন কোনো সদস্য নেই। ফিল্টার রিসেট করে আবার চেষ্টা করুন।'
+                : 'সংগঠনে এখনও কোনো সদস্য অন্তর্ভুক্ত করা হয়নি। অ্যাডমিন প্যানেল থেকে লগইন করে নতুন সদস্যদের নাম, পদবি, মোবাইল নম্বর ও ছবি যুক্ত করুন।'}
             </p>
             {isAdmin && (
               <button
-                onClick={() => {
-                  setEditingMember(null);
-                  setName('');
-                  setDesignation('');
-                  setPhone('');
-                  setBloodGroup('A+');
-                  setArea('পতেঙ্গা, চট্টগ্রাম');
-                  setPhotoUrl('');
-                  setIsAddModalOpen(true);
-                }}
-                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition"
+                onClick={handleOpenAdd}
+                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>প্রথম সদস্য যুক্ত করুন</span>
+                <span>নতুন সদস্য যুক্ত করুন</span>
               </button>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredMembers.map((member, idx) => {
-              const bgBadge = getBloodGroupBadge(member.bloodGroup);
               const cleanPhone = sanitizePhone(member.phone);
 
               return (
                 <div
                   key={member.id || idx}
                   id={`member-card-${member.id || idx}`}
-                  className="bg-white rounded-2xl p-4 border border-slate-200/90 hover:border-emerald-300 transition-all duration-200 shadow-xs hover:shadow-sm flex flex-col justify-between"
+                  className="bg-white rounded-2xl border border-slate-200/90 hover:border-emerald-400/80 transition-all duration-200 shadow-xs hover:shadow-md overflow-hidden flex flex-col justify-between"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      {/* Avatar */}
-                      <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 flex items-center justify-center font-bold text-base flex-shrink-0 overflow-hidden">
+                  {/* Top ID Card Header Strip */}
+                  <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600"></div>
+
+                  <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
+                    {/* Professional ID Card Body */}
+                    <div className="flex items-start gap-4">
+                      {/* Large ID Card Portrait Photo */}
+                      <div className="w-20 h-24 sm:w-24 sm:h-28 rounded-xl bg-gradient-to-b from-slate-50 to-slate-100 border-2 border-emerald-500/30 text-emerald-800 flex flex-col items-center justify-center font-bold flex-shrink-0 overflow-hidden shadow-xs relative">
                         {member.photoUrl ? (
                           <img
                             src={member.photoUrl}
@@ -349,104 +318,114 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
                             }}
                           />
                         ) : (
-                          member.name.charAt(0)
+                          <div className="flex flex-col items-center justify-center text-center p-2">
+                            <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-base font-black mb-1">
+                              {member.name.charAt(0)}
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400">সদস্য আইডি</span>
+                          </div>
                         )}
+                        <span className="absolute bottom-0 left-0 right-0 bg-slate-900/60 backdrop-blur-xs text-white text-[9px] font-bold text-center py-0.5">
+                          ID CARD
+                        </span>
                       </div>
                       
-                      <div>
-                        <h3 className="font-bold text-slate-900 text-base leading-tight">
+                      {/* Member Info Column */}
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <h3 className="font-bold text-slate-900 text-base sm:text-lg leading-snug break-words">
                           {member.name}
                         </h3>
-                        <div className="inline-flex items-center gap-1.5 mt-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-xs font-semibold border border-emerald-200/60">
-                          <UserCheck className="w-3 h-3 text-emerald-600" />
-                          <span>{member.designation}</span>
+
+                        <div>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200/70">
+                            <UserCheck className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                            <span>{member.designation}</span>
+                          </span>
                         </div>
+
                         {member.area && (
-                          <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
-                            <MapPin className="w-3 h-3 text-slate-400" />
-                            <span>{member.area}</span>
+                          <p className="text-xs text-slate-600 flex items-center gap-1.5 pt-0.5">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            <span className="truncate">{member.area}</span>
                           </p>
                         )}
+
+                        <p className="text-[11px] text-slate-400 font-medium">
+                          যোগদান: {member.joinDate ? toBengaliNumber(member.joinDate) : '১৫/০৮/২০২২'}
+                        </p>
                       </div>
                     </div>
 
-                    {/* Blood Group Badge if present */}
-                    {member.bloodGroup && (
-                      <div className={`px-2.5 py-1 rounded-xl border ${bgBadge.bg} ${bgBadge.border} ${bgBadge.text} text-center flex-shrink-0`}>
-                        <span className="text-[10px] block font-medium uppercase tracking-wider text-slate-500">গ্রুপ</span>
-                        <span className="text-sm font-extrabold">{member.bloodGroup}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions & Phone Bar */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <div className="text-xs font-mono font-semibold text-slate-700">
-                      {member.phone}
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      {/* Inline Admin Controls if Admin */}
-                      {isAdmin && (
-                        <>
-                          <button
-                            onClick={() => handleOpenEdit(member)}
-                            className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs transition"
-                            title="সদস্য এডিট করুন"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          {onDeleteMember && (
-                            <button
-                              onClick={() => onDeleteMember(member.id, member.name)}
-                              className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs transition"
-                              title="সদস্য ডিলিট করুন"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                    {/* Actions & Phone Bar */}
+                    <div className="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-mono font-bold text-slate-800 tracking-wide">
+                          {member.phone}
+                        </span>
+                        <button
+                          onClick={() => handleCopyPhone(member.phone)}
+                          id={`member-copy-${member.id || idx}`}
+                          className="p-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs transition cursor-pointer"
+                          title="নম্বর কপি করুন"
+                        >
+                          {copiedPhone === member.phone ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
                           )}
-                        </>
-                      )}
+                        </button>
+                      </div>
 
-                      <button
-                        onClick={() => handleCopyPhone(member.phone)}
-                        id={`member-copy-${member.id || idx}`}
-                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs transition"
-                        title="নম্বর কপি করুন"
-                      >
-                        {copiedPhone === member.phone ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
+                      <div className="flex items-center gap-1.5">
+                        {/* Inline Admin Controls */}
+                        {isAdmin && (
+                          <div className="flex items-center gap-1 mr-1 pr-1 border-r border-slate-200">
+                            <button
+                              onClick={() => handleOpenEdit(member)}
+                              className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs transition cursor-pointer"
+                              title="সদস্য এডিট করুন"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            {onDeleteMember && (
+                              <button
+                                onClick={() => onDeleteMember(member.id, member.name)}
+                                className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs transition cursor-pointer"
+                                title="সদস্য ডিলিট করুন"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         )}
-                      </button>
 
-                      <a
-                        href={`sms:${cleanPhone}`}
-                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs transition"
-                        title="এসএমএস পাঠান"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5" />
-                      </a>
+                        <a
+                          href={`sms:${cleanPhone}`}
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs transition"
+                          title="এসএমএস পাঠান"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                        </a>
 
-                      <a
-                        href={`https://wa.me/${cleanPhone.replace('+', '')}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs transition"
-                        title="হোয়াটসঅ্যাপে বার্তা পাঠান"
-                      >
-                        <span className="font-bold text-xs">WA</span>
-                      </a>
+                        <a
+                          href={`https://wa.me/${cleanPhone.replace('+', '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition flex items-center gap-1 border border-emerald-200/70"
+                          title="হোয়াটসঅ্যাপে বার্তা পাঠান"
+                        >
+                          <span>WA</span>
+                        </a>
 
-                      <a
-                        href={`tel:${cleanPhone}`}
-                        id={`member-call-${member.id || idx}`}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-2xs"
-                      >
-                        <Phone className="w-3 h-3" />
-                        <span>কল</span>
-                      </a>
+                        <a
+                          href={`tel:${cleanPhone}`}
+                          id={`member-call-${member.id || idx}`}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                        >
+                          <Phone className="w-3 h-3" />
+                          <span>কল</span>
+                        </a>
+                      </div>
                     </div>
                   </div>
                 </div>

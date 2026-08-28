@@ -278,7 +278,6 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
     const name = formData.get('name') as string;
     const designation = formData.get('designation') as string;
     const phone = formData.get('phone') as string;
-    const bloodGroup = (formData.get('bloodGroup') as BloodGroup) || editingMember?.bloodGroup;
     const area = formData.get('area') as string;
     const photoUrl = memberPhotoBase64.trim();
     const joinDate = formData.get('joinDate') as string;
@@ -297,7 +296,6 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
           name: name.trim(),
           designation: designation.trim(),
           phone: phone.trim(),
-          bloodGroup,
           area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
           photoUrl: photoUrl?.trim() || undefined,
           joinDate: joinDate || editingMember.joinDate,
@@ -310,7 +308,6 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
           name: name.trim(),
           designation: designation.trim(),
           phone: phone.trim(),
-          bloodGroup,
           area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
           photoUrl: photoUrl?.trim() || undefined,
           joinDate: joinDate || m.joinDate,
@@ -326,7 +323,6 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
           name: name.trim(),
           designation: designation.trim() || 'সদস্য',
           phone: phone.trim(),
-          bloodGroup,
           area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
           photoUrl: photoUrl?.trim() || undefined,
           joinDate: joinDate || new Date().toISOString().split('T')[0],
@@ -339,7 +335,6 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
           name: name.trim(),
           designation: designation.trim() || 'সদস্য',
           phone: phone.trim(),
-          bloodGroup,
           area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
           photoUrl: photoUrl?.trim() || undefined,
           joinDate: joinDate || new Date().toISOString().split('T')[0],
@@ -1100,9 +1095,9 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
                   <tr>
                     <th className="p-3.5">নাম ও পদবি</th>
-                    <th className="p-3.5">গ্রুপ</th>
-                    <th className="p-3.5">মোবাইল</th>
+                    <th className="p-3.5">মোবাইল নম্বর</th>
                     <th className="p-3.5">এলাকা</th>
+                    <th className="p-3.5">যোগদান</th>
                     <th className="p-3.5">স্ট্যাটাস</th>
                     <th className="p-3.5 text-right">অ্যাকশন</th>
                   </tr>
@@ -1119,7 +1114,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                       <tr key={m.id} className="hover:bg-slate-50/80 transition">
                         <td className="p-3.5">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200/80 text-blue-800 flex items-center justify-center font-bold text-xs flex-shrink-0 overflow-hidden">
+                            <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200/80 text-blue-800 flex items-center justify-center font-bold text-xs flex-shrink-0 overflow-hidden shadow-2xs">
                               {m.photoUrl ? (
                                 <img
                                   src={m.photoUrl}
@@ -1139,13 +1134,11 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                             </div>
                           </div>
                         </td>
-                        <td className="p-3.5">
-                          <span className="font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 text-xs">
-                            {m.bloodGroup}
-                          </span>
-                        </td>
-                        <td className="p-3.5 font-mono text-slate-800">{m.phone}</td>
+                        <td className="p-3.5 font-mono text-slate-800 font-semibold">{m.phone}</td>
                         <td className="p-3.5 text-slate-600">{m.area || 'পতেঙ্গা, চট্টগ্রাম'}</td>
+                        <td className="p-3.5 text-slate-500 text-[11px]">
+                          {m.joinDate ? toBengaliNumber(m.joinDate) : '১৫/০৮/২০২২'}
+                        </td>
                         <td className="p-3.5">
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             {m.status || 'সক্রিয়'}
@@ -1155,7 +1148,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                           <button
                             onClick={() => setEditingMember(m)}
                             id={`edit-member-${m.id}`}
-                            className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 transition"
+                            className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 transition cursor-pointer"
                             title="এডিট করুন"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -1163,7 +1156,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                           <button
                             onClick={() => handleDeleteMember(m.id, m.name)}
                             id={`delete-member-${m.id}`}
-                            className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition"
+                            className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition cursor-pointer"
                             title="মুছে ফেলুন"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
