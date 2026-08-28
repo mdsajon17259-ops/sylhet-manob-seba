@@ -1,7 +1,7 @@
 import { Member, BloodDonor, Notice, FundRecord, OrganizationProfile } from '../types';
 
 export const INITIAL_ORG_PROFILE: OrganizationProfile = {
-  name: 'সিলেট মানব সেবা সংঘঠন',
+  name: 'সিলেট মানব সেবা সংগঠন',
   tagline: 'মানবতার কল্যাণে নিবেদিত প্রাণ',
   establishedDate: '১৫/০৮/২০২২ইং',
   establishedYear: '২০২২',

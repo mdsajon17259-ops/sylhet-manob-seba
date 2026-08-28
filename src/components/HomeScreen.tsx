@@ -87,11 +87,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <div className="mt-5 flex flex-wrap gap-3">
             <button
               onClick={openEmergencyModal}
-              id="home-hero-blood-req-btn"
-              className="bg-red-600 hover:bg-red-700 text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow-xs flex items-center gap-2 transition hover:shadow"
+              id="home-hero-emergency-helpline-btn"
+              className="bg-emerald-700 hover:bg-emerald-600 border border-emerald-400/50 text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow-xs flex items-center gap-2 transition hover:shadow cursor-pointer"
             >
-              <Droplet className="w-4 h-4 fill-white" />
-              <span>জরুরি রক্তের হেল্পলাইন</span>
+              <PhoneCall className="w-4 h-4 text-amber-300" />
+              <span>জরুরি হেল্পলাইন</span>
             </button>
             <button
               onClick={() => {

@@ -1,4 +1,4 @@
-import { Member, BloodDonor, Notice, FundRecord, OrganizationProfile } from '../types';
+import { Member, BloodDonor, Notice, FundRecord, OrganizationProfile, PaymentGatewayConfig } from '../types';
 import { INITIAL_MEMBERS, INITIAL_DONORS, INITIAL_NOTICES, INITIAL_FUNDS, INITIAL_ORG_PROFILE } from '../data/initialData';
 
 const STORAGE_KEYS = {
@@ -9,6 +9,7 @@ const STORAGE_KEYS = {
   FUNDS: 'pms_funds_v2',
   TOTAL_ORG_BALANCE: 'pms_total_org_balance_v2',
   ADMIN_PIN: 'pms_admin_pin_v2',
+  PAYMENT_SETTINGS: 'pms_payment_settings_v2',
 };
 
 // Admin PIN normalization and verification
@@ -58,8 +59,8 @@ export function loadOrgProfile(): OrganizationProfile {
     const saved = localStorage.getItem(STORAGE_KEYS.PROFILE);
     if (saved) {
       const parsed: OrganizationProfile = JSON.parse(saved);
-      if (!parsed.name || parsed.name === 'মানব সেবা সংগঠন' || parsed.name === 'পতেঙ্গা মানব সেবা সংগঠন') {
-        parsed.name = 'সিলেট মানব সেবা সংঘঠন';
+      if (!parsed.name || parsed.name === 'মানব সেবা সংগঠন' || parsed.name === 'পতেঙ্গা মানব সেবা সংগঠন' || parsed.name === 'সিলেট মানব সেবা সংঘঠন') {
+        parsed.name = 'সিলেট মানব সেবা সংগঠন';
       }
       if (!parsed.establishedDate) {
         parsed.establishedDate = '১৫/০৮/২০২২ইং';
@@ -185,40 +186,40 @@ export function saveManualTotalBalance(amount: number | null): void {
   }
 }
 
-// Export Full In-App Backup JSON
-export function exportAppBackupJSON(): void {
-  const data = {
-    exportDate: new Date().toISOString(),
-    profile: loadOrgProfile(),
-    members: loadMembers(),
-    donors: loadDonors(),
-    notices: loadNotices(),
-    funds: loadFunds(),
-    totalOrgBalance: loadManualTotalBalance(),
+// Payment Gateway Settings (Dynamic Admin Configured, no hardcoding)
+export function loadPaymentSettings(): PaymentGatewayConfig {
+  const defaults: PaymentGatewayConfig = {
+    bkashNumber: '',
+    bkashType: 'Personal',
+    bkashInstruction: 'বিকাশ অ্যাপ বা *247# ডায়াল করে Send Money করুন',
+    nagadNumber: '',
+    nagadType: 'Personal',
+    nagadInstruction: 'নগদ অ্যাপ বা *167# ডায়াল করে Send Money করুন',
+    rocketNumber: '',
+    rocketType: 'Personal',
+    rocketInstruction: 'রকেট অ্যাপ বা *322# ডায়াল করে Send Money করুন',
   };
 
-  const jsonStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data, null, 2));
-  const link = document.createElement('a');
-  link.setAttribute('href', jsonStr);
-  link.setAttribute('download', `sylhet_manob_seba_backup_${new Date().toISOString().split('T')[0]}.json`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.PAYMENT_SETTINGS);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        ...defaults,
+        ...parsed,
+      };
+    }
+  } catch (e) {
+    console.error('Error loading payment settings', e);
+  }
+  return defaults;
 }
 
-// Import JSON Backup
-export function importAppBackupJSON(jsonData: any): boolean {
+export function savePaymentSettings(settings: PaymentGatewayConfig): void {
   try {
-    if (jsonData.profile) saveOrgProfile(jsonData.profile);
-    if (Array.isArray(jsonData.members)) saveMembers(jsonData.members);
-    if (Array.isArray(jsonData.donors)) saveDonors(jsonData.donors);
-    if (Array.isArray(jsonData.notices)) saveNotices(jsonData.notices);
-    if (Array.isArray(jsonData.funds)) saveFunds(jsonData.funds);
-    if (typeof jsonData.totalOrgBalance === 'number') saveManualTotalBalance(jsonData.totalOrgBalance);
-    return true;
+    localStorage.setItem(STORAGE_KEYS.PAYMENT_SETTINGS, JSON.stringify(settings));
   } catch (e) {
-    console.error('Error importing backup', e);
-    return false;
+    console.error('Error saving payment settings', e);
   }
 }
 
@@ -242,7 +243,7 @@ export function clearAllData(): void {
 }
 
 // Export CSV for any data category
-export function exportSheetCSV(type: 'members' | 'donors' | 'notices' | 'fund'): void {
+export function exportSheetCSV(type: 'members' | 'donors' | 'notices' | 'fund' | 'expenses'): void {
   let headers = '';
   let rows: string[] = [];
   let filename = '';
@@ -250,7 +251,7 @@ export function exportSheetCSV(type: 'members' | 'donors' | 'notices' | 'fund'):
   if (type === 'members') {
     headers = 'Name,Designation,Phone,BloodGroup,Area';
     const members = loadMembers();
-    rows = members.map(m => `"${m.name}","${m.designation}","${m.phone}","${m.bloodGroup}","${m.area || ''}"`);
+    rows = members.map(m => `"${m.name}","${m.designation}","${m.phone}","${m.bloodGroup || ''}","${m.area || ''}"`);
     filename = 'Members_Sylhet_Manob_Seba.csv';
   } else if (type === 'donors') {
     headers = 'Name,Phone,BloodGroup,LastDonationDate,NextEligibleDate,Area';
@@ -262,13 +263,19 @@ export function exportSheetCSV(type: 'members' | 'donors' | 'notices' | 'fund'):
     const notices = loadNotices();
     rows = notices.map(n => `"${n.date}","${(n.title || '').replace(/"/g, '""')}","${n.noticeText.replace(/"/g, '""')}","${n.priority || ''}"`);
     filename = 'Notices_Sylhet_Manob_Seba.csv';
+  } else if (type === 'expenses') {
+    headers = 'Date,Particulars_Reason,DisbursedTo,Amount,Category,Notes_Voucher';
+    const funds = loadFunds();
+    const expenses = funds.filter(f => f.status === 'Expense');
+    rows = expenses.map(e => `"${e.date || ''}","${(e.description || '').replace(/"/g, '""')}","${e.disbursedTo || e.memberName}","${e.amount}","${e.category || ''}","${(e.notes || '').replace(/"/g, '""')}"`);
+    filename = 'ExpenseBreakdown_Sylhet_Manob_Seba.csv';
   } else if (type === 'fund') {
-    headers = 'TotalBalance,MemberName,Status,Amount,Month,Date';
+    headers = 'TotalBalance,MemberName,Status,Amount,Month,Date,TrxID,Notes';
     const funds = loadFunds();
     const manualBal = loadManualTotalBalance();
     const calculatedTotal = funds.filter(f => f.status === 'Paid').reduce((acc, curr) => acc + curr.amount, 0);
     const totalBalance = manualBal !== null ? manualBal : calculatedTotal;
-    rows = funds.map(f => `"${totalBalance}","${f.memberName}","${f.status}","${f.amount}","${f.month || ''}","${f.date || ''}"`);
+    rows = funds.map(f => `"${totalBalance}","${f.memberName}","${f.status}","${f.amount}","${f.month || ''}","${f.date || ''}","${f.trxId || ''}","${(f.notes || '').replace(/"/g, '""')}"`);
     filename = 'Fund_Sylhet_Manob_Seba.csv';
   }
 

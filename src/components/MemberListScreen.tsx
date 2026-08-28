@@ -14,7 +14,10 @@ import {
   MapPin,
   Edit2,
   Trash2,
-  X
+  X,
+  Upload,
+  Camera,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Member, BloodGroup } from '../types';
 import { toBengaliNumber, getBloodGroupBadge, sanitizePhone } from '../utils/helpers';
@@ -50,7 +53,24 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
   const [phone, setPhone] = useState('');
   const [bloodGroup, setBloodGroup] = useState<BloodGroup>('A+');
   const [area, setArea] = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
   const [formError, setFormError] = useState('');
+
+  const handlePhotoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setFormError('ছবির সাইজ সর্বোচ্চ ৫ মেগাবাইট হতে পারবে');
+        return;
+      }
+      setFormError('');
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Extract unique designations for filter
   const designations = useMemo(() => {
@@ -90,6 +110,7 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
       setPhone(m.phone);
       setBloodGroup(m.bloodGroup);
       setArea(m.area || 'পতেঙ্গা, চট্টগ্রাম');
+      setPhotoUrl(m.photoUrl || '');
       setIsAddModalOpen(true);
     }
   };
@@ -116,7 +137,8 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
         designation: designation.trim(),
         phone: phone.trim(),
         bloodGroup,
-        area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম'
+        area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
+        photoUrl: photoUrl.trim() || undefined,
       });
     } else {
       onAddMember({
@@ -125,6 +147,7 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
         phone: phone.trim(),
         bloodGroup,
         area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
+        photoUrl: photoUrl.trim() || undefined,
         joinDate: new Date().toISOString().split('T')[0],
         status: 'সক্রিয়'
       });
@@ -135,6 +158,7 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
     setPhone('');
     setBloodGroup('A+');
     setArea('');
+    setPhotoUrl('');
     setEditingMember(null);
     setFormError('');
     setIsAddModalOpen(false);
@@ -186,6 +210,7 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
                 setPhone('');
                 setBloodGroup('A+');
                 setArea('পতেঙ্গা, চট্টগ্রাম');
+                setPhotoUrl('');
                 setIsAddModalOpen(true);
               }}
               id="members-add-new-btn"
@@ -269,10 +294,34 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
         </div>
 
         {filteredMembers.length === 0 ? (
-          <div className="bg-white rounded-2xl p-8 text-center border border-slate-200">
-            <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <p className="text-slate-600 font-medium text-sm">কোনো সদস্য পাওয়া যায়নি</p>
-            <p className="text-xs text-slate-400 mt-1">অনুসন্ধান ফিল্টার পরিবর্তন করুন অথবা অ্যাডমিন প্যানেল থেকে নতুন সদস্য যুক্ত করুন</p>
+          <div className="bg-white rounded-3xl p-10 text-center border-2 border-dashed border-slate-200 shadow-xs">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3 border border-emerald-100">
+              <Users className="w-8 h-8" />
+            </div>
+            <h4 className="text-base font-bold text-slate-800">
+              সদস্য তালিকা বর্তমানে সম্পূর্ণ খালি
+            </h4>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+              সংগঠনে এখনও কোনো সদস্য অন্তর্ভুক্ত করা হয়নি। অ্যাডমিন প্যানেল থেকে লগইন করে নতুন সদস্যদের নাম, পদবি, মোবাইল নম্বর ও ছবি যুক্ত করুন।
+            </p>
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  setEditingMember(null);
+                  setName('');
+                  setDesignation('');
+                  setPhone('');
+                  setBloodGroup('A+');
+                  setArea('পতেঙ্গা, চট্টগ্রাম');
+                  setPhotoUrl('');
+                  setIsAddModalOpen(true);
+                }}
+                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition"
+              >
+                <Plus className="w-4 h-4" />
+                <span>প্রথম সদস্য যুক্ত করুন</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -289,8 +338,19 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
                       {/* Avatar */}
-                      <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 flex items-center justify-center font-bold text-base flex-shrink-0">
-                        {member.name.charAt(0)}
+                      <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 flex items-center justify-center font-bold text-base flex-shrink-0 overflow-hidden">
+                        {member.photoUrl ? (
+                          <img
+                            src={member.photoUrl}
+                            alt={member.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          member.name.charAt(0)
+                        )}
                       </div>
                       
                       <div>
@@ -310,11 +370,13 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
                       </div>
                     </div>
 
-                    {/* Blood Group Badge */}
-                    <div className={`px-2.5 py-1 rounded-xl border ${bgBadge.bg} ${bgBadge.border} ${bgBadge.text} text-center flex-shrink-0`}>
-                      <span className="text-[10px] block font-medium uppercase tracking-wider text-slate-500">গ্রুপ</span>
-                      <span className="text-sm font-extrabold">{member.bloodGroup}</span>
-                    </div>
+                    {/* Blood Group Badge if present */}
+                    {member.bloodGroup && (
+                      <div className={`px-2.5 py-1 rounded-xl border ${bgBadge.bg} ${bgBadge.border} ${bgBadge.text} text-center flex-shrink-0`}>
+                        <span className="text-[10px] block font-medium uppercase tracking-wider text-slate-500">গ্রুপ</span>
+                        <span className="text-sm font-extrabold">{member.bloodGroup}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions & Phone Bar */}
@@ -432,7 +494,7 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     পদবি (Designation) *
@@ -449,32 +511,17 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    রক্তের গ্রুপ (BloodGroup) *
+                    মোবাইল নম্বর (Phone) *
                   </label>
-                  <select
-                    value={bloodGroup}
-                    onChange={(e) => setBloodGroup(e.target.value as BloodGroup)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none bg-white font-bold"
-                  >
-                    {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(bg => (
-                      <option key={bg} value={bg}>{bg}</option>
-                    ))}
-                  </select>
+                  <input
+                    type="text"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="যেমন: 01811-XXXXXX"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none font-mono"
+                  />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  মোবাইল নম্বর (Phone) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="যেমন: 01811-XXXXXX"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none font-mono"
-                />
               </div>
 
               <div>
@@ -488,6 +535,71 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
                   placeholder="যেমন: কাঠগড়, পতেঙ্গা, চট্টগ্রাম"
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                  <span>সদস্যের ছবি (মোবাইল গ্যালারি থেকে আপলোড)</span>
+                  <span className="text-[11px] text-slate-400 font-normal">ঐচ্ছিক</span>
+                </label>
+                <input
+                  type="file"
+                  id="member-photo-gallery-picker"
+                  accept="image/*"
+                  onChange={handlePhotoFileChange}
+                  className="hidden"
+                />
+
+                {photoUrl ? (
+                  <div className="flex items-center gap-3.5 bg-emerald-50/70 p-3 rounded-2xl border border-emerald-200">
+                    <div className="w-16 h-16 rounded-2xl border-2 border-emerald-500 overflow-hidden flex-shrink-0 bg-white shadow-xs">
+                      <img 
+                        src={photoUrl} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+                        <Check className="w-4 h-4 text-emerald-600" />
+                        <span>গ্যালারি থেকে ছবি সিলেক্ট করা হয়েছে</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('member-photo-gallery-picker')?.click()}
+                          className="px-2.5 py-1 bg-white hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg border border-emerald-300 transition flex items-center gap-1"
+                        >
+                          <Camera className="w-3.5 h-3.5" />
+                          <span>পরিবর্তন</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPhotoUrl('')}
+                          className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold rounded-lg border border-rose-200 transition"
+                        >
+                          মুছুন
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('member-photo-gallery-picker')?.click()}
+                    className="w-full py-4 px-4 border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl bg-slate-50 hover:bg-emerald-50/40 text-slate-600 hover:text-emerald-800 transition flex flex-col items-center justify-center gap-1.5 cursor-pointer group"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-white shadow-2xs border border-slate-200 group-hover:border-emerald-300 flex items-center justify-center text-emerald-600">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800 group-hover:text-emerald-700">
+                      ফোনের গ্যালারি থেকে ছবি নির্বাচন করুন
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      ট্যাপ করে গ্যালারি বা ক্যামেরা থেকে ছবি নিন (JPG, PNG, WEBP)
+                    </span>
+                  </button>
+                )}
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2">

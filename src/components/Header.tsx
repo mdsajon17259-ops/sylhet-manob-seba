@@ -1,6 +1,5 @@
 import React from 'react';
 import { 
-  HeartHandshake, 
   ShieldCheck, 
   Lock, 
   PhoneCall, 
@@ -10,6 +9,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { ActiveScreen, OrganizationProfile } from '../types';
+import orgLogo from '../assets/images/org_logo_1787709579485.jpg';
 
 interface HeaderProps {
   profile: OrganizationProfile;
@@ -49,10 +49,11 @@ export const Header: React.FC<HeaderProps> = ({
           <button 
             onClick={openEmergencyModal}
             id="emergency-top-btn"
-            className="flex items-center gap-1 text-red-100 hover:text-white bg-red-600/90 hover:bg-red-600 px-2.5 py-0.5 rounded text-[11px] font-bold transition shadow-xs"
+            className="flex items-center gap-1.5 text-emerald-100 hover:text-white bg-emerald-900/80 hover:bg-emerald-950 border border-emerald-500/50 px-3 py-1 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+            title="জরুরি হেল্পলাইন নম্বরসমূহ"
           >
-            <PhoneCall className="w-3 h-3" />
-            <span>জরুরি রক্ত হেল্পলাইন</span>
+            <PhoneCall className="w-3.5 h-3.5 text-amber-300" />
+            <span>জরুরি হেল্পলাইন</span>
           </button>
         </div>
       </div>
@@ -64,8 +65,16 @@ export const Header: React.FC<HeaderProps> = ({
           className="flex items-center gap-3 cursor-pointer select-none group"
           id="header-brand"
         >
-          <div className="w-11 h-11 rounded-xl bg-white shadow-sm flex items-center justify-center p-1 border border-emerald-200 text-emerald-700 group-hover:scale-105 transition-transform flex-shrink-0">
-            <HeartHandshake className="w-7 h-7 text-emerald-600" />
+          <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center p-0.5 border-2 border-emerald-200/80 group-hover:scale-105 transition-transform flex-shrink-0 overflow-hidden">
+            <img 
+              src={orgLogo} 
+              alt={profile.name} 
+              className="w-full h-full object-cover rounded-xl"
+              onError={(e) => {
+                // Fallback gracefully if image fails
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white leading-tight">

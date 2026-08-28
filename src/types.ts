@@ -1,6 +1,6 @@
 export type BloodGroup = 'A+' | 'A-' | 'B+' | 'B-' | 'O+' | 'O-' | 'AB+' | 'AB-';
 
-export type PaymentStatus = 'Paid' | 'Due' | 'Expense';
+export type PaymentStatus = 'Paid' | 'Due' | 'Expense' | 'Pending';
 
 export type ActiveScreen = 'home' | 'members' | 'blood' | 'notices' | 'fund' | 'admin';
 
@@ -9,11 +9,27 @@ export interface Member {
   name: string; // Name
   designation: string; // Designation
   phone: string; // Phone
-  bloodGroup: BloodGroup; // BloodGroup
+  bloodGroup?: BloodGroup; // BloodGroup (optional)
   area?: string;
+  photoUrl?: string; // Photo URL
   joinDate?: string;
   email?: string;
   status?: 'সক্রিয়' | 'স্থগিত';
+}
+
+export interface PaymentGatewayConfig {
+  bkashNumber: string;
+  bkashType: 'Personal' | 'Merchant' | 'Agent';
+  bkashInstruction?: string;
+  bkashInstructions?: string;
+  nagadNumber: string;
+  nagadType: 'Personal' | 'Merchant' | 'Agent';
+  nagadInstruction?: string;
+  nagadInstructions?: string;
+  rocketNumber: string;
+  rocketType: 'Personal' | 'Merchant' | 'Agent';
+  rocketInstruction?: string;
+  rocketInstructions?: string;
 }
 
 export interface BloodDonor {
@@ -40,17 +56,22 @@ export interface Notice {
 
 export interface FundRecord {
   id: string;
-  memberName: string; // MemberName or Particular
+  memberName: string; // MemberName, Donor, or Expense Particular
   amount: number;
-  status: PaymentStatus; // Status (Paid / Due / Expense)
+  status: PaymentStatus; // Status (Paid / Due / Expense / Pending)
   type?: 'income' | 'expense'; // Income / Expense
   totalBalance?: number; // TotalBalance column header support
   date: string;
-  description?: string;
+  description?: string; // Particulars / Expense reason
   month?: string;
   phone?: string;
   category?: string;
   notes?: string;
+  trxId?: string; // Transaction ID for verification
+  senderPhone?: string; // Sender mobile number
+  gateway?: string; // bKash / Nagad / Rocket
+  disbursedTo?: string; // Person in charge / Disbursed to for expenses
+  approvedAt?: string; // Timestamp when approved by admin
 }
 
 export interface OrganizationProfile {

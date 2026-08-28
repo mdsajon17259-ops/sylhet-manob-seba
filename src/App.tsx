@@ -7,7 +7,8 @@ import {
   FundRecord, 
   OrganizationStats,
   OrganizationProfile,
-  PaymentStatus
+  PaymentStatus,
+  PaymentGatewayConfig
 } from './types';
 import { 
   loadMembers, 
@@ -22,6 +23,8 @@ import {
   saveOrgProfile, 
   loadManualTotalBalance, 
   saveManualTotalBalance, 
+  loadPaymentSettings,
+  savePaymentSettings,
   resetAllData, 
   clearAllData 
 } from './utils/storage';
@@ -34,7 +37,7 @@ import { NoticeScreen } from './components/NoticeScreen';
 import { FundScreen } from './components/FundScreen';
 import { AdminPanelScreen } from './components/AdminPanelScreen';
 import { AdminModal } from './components/AdminModal';
-import { EmergencyBloodModal } from './components/EmergencyBloodModal';
+import { EmergencyHelplineModal } from './components/EmergencyHelplineModal';
 import { SheetGuideModal } from './components/SheetGuideModal';
 import { BottomNav } from './components/BottomNav';
 import { HeartHandshake, MapPin, ShieldCheck, Heart } from 'lucide-react';
@@ -50,6 +53,7 @@ export default function App() {
   const [notices, setNotices] = useState<Notice[]>(() => loadNotices());
   const [funds, setFunds] = useState<FundRecord[]>(() => loadFunds());
   const [manualTotalBalance, setManualTotalBalance] = useState<number | null>(() => loadManualTotalBalance());
+  const [paymentConfig, setPaymentConfig] = useState<PaymentGatewayConfig>(() => loadPaymentSettings());
 
   // Modals
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
@@ -76,6 +80,15 @@ export default function App() {
   useEffect(() => {
     saveFunds(funds);
   }, [funds]);
+
+  useEffect(() => {
+    savePaymentSettings(paymentConfig);
+  }, [paymentConfig]);
+
+  const handleUpdatePaymentConfig = (newConfig: PaymentGatewayConfig) => {
+    setPaymentConfig(newConfig);
+    savePaymentSettings(newConfig);
+  };
 
   // Member Handlers
   const handleAddMember = (newMember: Omit<Member, 'id'>) => {
@@ -159,7 +172,8 @@ export default function App() {
         return {
           ...f,
           status: newStatus,
-          date: new Date().toISOString().split('T')[0]
+          approvedAt: newStatus === 'Paid' ? new Date().toISOString() : f.approvedAt,
+          date: f.date || new Date().toISOString().split('T')[0]
         };
       }
       return f;
@@ -272,6 +286,7 @@ export default function App() {
             onToggleStatus={handleToggleFundStatus}
             manualTotalBalance={manualTotalBalance}
             onUpdateManualTotalBalance={handleUpdateManualTotalBalance}
+            paymentConfig={paymentConfig}
             isAdmin={isAdmin}
             onBack={() => setActiveScreen('home')}
           />
@@ -284,6 +299,8 @@ export default function App() {
             donors={donors}
             notices={notices}
             funds={funds}
+            paymentConfig={paymentConfig}
+            onUpdatePaymentConfig={handleUpdatePaymentConfig}
             onUpdateProfile={setProfile}
             onAddMember={handleAddMember}
             onEditMember={handleEditMember}
@@ -354,7 +371,6 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         noticeCount={notices.length}
-        readyDonorsCount={stats.readyDonors}
       />
 
       {/* Modals */}
@@ -367,11 +383,22 @@ export default function App() {
         }}
       />
 
-      <EmergencyBloodModal
+      <EmergencyHelplineModal
         isOpen={isEmergencyModalOpen}
         onClose={() => setIsEmergencyModalOpen(false)}
-        donors={donors}
         profile={profile}
+        onUpdateProfile={(updatedProfile) => {
+          setProfile(updatedProfile);
+          saveOrgProfile(updatedProfile);
+        }}
+        isAdmin={isAdmin}
+        onNavigateToAdmin={() => {
+          if (isAdmin) {
+            setActiveScreen('admin');
+          } else {
+            setIsAdminModalOpen(true);
+          }
+        }}
       />
 
       <SheetGuideModal
