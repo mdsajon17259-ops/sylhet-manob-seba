@@ -85,6 +85,7 @@ export interface OrganizationProfile {
   emergencyContact?: string;
   regNumber?: string;
   email?: string;
+  logoUrl?: string;
 }
 
 export interface OrganizationStats {

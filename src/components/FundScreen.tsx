@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { 
   Wallet, 
   Plus, 
-  Download, 
   ArrowLeft, 
   Search, 
   CheckCircle2, 
@@ -30,7 +29,7 @@ import {
 } from 'lucide-react';
 import { FundRecord, PaymentStatus, PaymentGatewayConfig } from '../types';
 import { toBengaliCurrency, toBengaliNumber, formatBengaliDate } from '../utils/helpers';
-import { exportSheetCSV, loadPaymentSettings } from '../utils/storage';
+import { loadPaymentSettings } from '../utils/storage';
 import { ExpenseModal } from './ExpenseModal';
 
 interface FundScreenProps {
@@ -383,17 +382,6 @@ export const FundScreen: React.FC<FundScreenProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* CSV Download buttons */}
-          <button
-            onClick={() => exportSheetCSV(statusFilter === 'Expense' ? 'expenses' : 'fund')}
-            id="fund-export-csv-btn"
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
-            title="CSV ফাইল ডাউনলোড করুন"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{statusFilter === 'Expense' ? 'খরচের CSV' : 'ফান্ড CSV'}</span>
-          </button>
-
           {/* Add Expense Button (Admin Only) */}
           {isAdmin && (
             <button
@@ -1192,13 +1180,6 @@ export const FundScreen: React.FC<FundScreenProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => exportSheetCSV('expenses')}
-                className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition flex items-center gap-1.5"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>খরচের CSV ডাউনলোড</span>
-              </button>
               {isAdmin && (
                 <button
                   onClick={handleOpenAddExpense}

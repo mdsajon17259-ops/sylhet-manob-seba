@@ -7,7 +7,6 @@ import {
   MessageSquare, 
   Copy, 
   Check, 
-  Download, 
   Filter, 
   ArrowLeft,
   UserCheck,
@@ -21,7 +20,6 @@ import {
 } from 'lucide-react';
 import { Member } from '../types';
 import { toBengaliNumber, sanitizePhone } from '../utils/helpers';
-import { exportSheetCSV } from '../utils/storage';
 
 interface MemberListScreenProps {
   members: Member[];
@@ -193,16 +191,6 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => exportSheetCSV('members')}
-            id="members-export-csv-btn"
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
-            title="CSV ফাইল ডাউনলোড করুন"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">CSV ডাউনলোড</span>
-          </button>
-
           {/* Admin Only: Add Member Button */}
           {isAdmin && (
             <button
@@ -322,12 +310,9 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
                             <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-base font-black mb-1">
                               {member.name.charAt(0)}
                             </div>
-                            <span className="text-[10px] font-bold text-slate-400">সদস্য আইডি</span>
+                            <span className="text-[10px] font-bold text-slate-400">সদস্য</span>
                           </div>
                         )}
-                        <span className="absolute bottom-0 left-0 right-0 bg-slate-900/60 backdrop-blur-xs text-white text-[9px] font-bold text-center py-0.5">
-                          ID CARD
-                        </span>
                       </div>
                       
                       {/* Member Info Column */}

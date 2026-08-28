@@ -72,12 +72,14 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center p-0.5 border-2 border-emerald-200/80 group-hover:scale-105 transition-transform flex-shrink-0 overflow-hidden">
             <img 
-              src={orgLogo} 
+              src={profile.logoUrl || orgLogo} 
               alt={profile.name} 
               className="w-full h-full object-cover rounded-xl"
               onError={(e) => {
-                // Fallback gracefully if image fails
-                (e.target as HTMLElement).style.display = 'none';
+                // Fallback gracefully to default logo if custom URL fails
+                if (profile.logoUrl && (e.target as HTMLImageElement).src !== orgLogo) {
+                  (e.target as HTMLImageElement).src = orgLogo;
+                }
               }}
             />
           </div>

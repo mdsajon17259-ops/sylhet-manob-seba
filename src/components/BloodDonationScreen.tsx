@@ -7,7 +7,6 @@ import {
   MessageSquare, 
   Copy, 
   Check, 
-  Download, 
   ArrowLeft, 
   Heart, 
   Clock, 
@@ -27,7 +26,6 @@ import {
   formatBengaliDate, 
   sanitizePhone 
 } from '../utils/helpers';
-import { exportSheetCSV } from '../utils/storage';
 
 interface BloodDonationScreenProps {
   donors: BloodDonor[];
@@ -191,16 +189,6 @@ export const BloodDonationScreen: React.FC<BloodDonationScreenProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => exportSheetCSV('donors')}
-            id="blood-export-csv-btn"
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
-            title="CSV ডাউনলোড করুন"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">CSV ডাউনলোড</span>
-          </button>
-          
           {/* Admin Only: New Donor Jump Button */}
           {isAdmin && (
             <a

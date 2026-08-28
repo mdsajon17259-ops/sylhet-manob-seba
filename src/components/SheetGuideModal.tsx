@@ -2,14 +2,12 @@ import React, { useState } from 'react';
 import { 
   FileSpreadsheet, 
   X, 
-  Download, 
   Check, 
   Layers, 
   Smartphone, 
   Code,
   Sparkles
 } from 'lucide-react';
-import { exportSheetCSV } from '../utils/storage';
 
 interface SheetGuideModalProps {
   isOpen: boolean;
@@ -107,24 +105,17 @@ export const SheetGuideModal: React.FC<SheetGuideModalProps> = ({
                   </span>
                   <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => copyToClipboard('Name\tDesignation\tPhone\tBloodGroup', 'm_hd')}
-                      className="text-[11px] text-slate-600 hover:text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-300"
+                      onClick={() => copyToClipboard('Name\tDesignation\tPhone', 'm_hd')}
+                      className="text-[11px] text-slate-600 hover:text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-300 cursor-pointer"
                     >
                       {copiedKey === 'm_hd' ? 'কপি হয়েছে' : 'হেডার কপি'}
                     </button>
-                    <button
-                      onClick={() => exportSheetCSV('members')}
-                      className="text-[11px] text-emerald-700 font-semibold hover:text-emerald-900 bg-emerald-100/60 px-2 py-0.5 rounded"
-                    >
-                      CSV ডাউনলোড
-                    </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-1 text-[11px] font-mono text-center">
+                <div className="grid grid-cols-3 gap-1 text-[11px] font-mono text-center">
                   <div className="bg-emerald-100 text-emerald-900 py-1 rounded font-bold">Name</div>
                   <div className="bg-emerald-100 text-emerald-900 py-1 rounded font-bold">Designation</div>
                   <div className="bg-emerald-100 text-emerald-900 py-1 rounded font-bold">Phone</div>
-                  <div className="bg-emerald-100 text-emerald-900 py-1 rounded font-bold">BloodGroup</div>
                 </div>
               </div>
 
@@ -137,15 +128,9 @@ export const SheetGuideModal: React.FC<SheetGuideModalProps> = ({
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => copyToClipboard('Name\tPhone\tBloodGroup\tLastDonationDate\tNextEligibleDate', 'b_hd')}
-                      className="text-[11px] text-slate-600 hover:text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-300"
+                      className="text-[11px] text-slate-600 hover:text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-300 cursor-pointer"
                     >
                       {copiedKey === 'b_hd' ? 'কপি হয়েছে' : 'হেডার কপি'}
-                    </button>
-                    <button
-                      onClick={() => exportSheetCSV('donors')}
-                      className="text-[11px] text-rose-700 font-semibold hover:text-rose-900 bg-rose-100/60 px-2 py-0.5 rounded"
-                    >
-                      CSV ডাউনলোড
                     </button>
                   </div>
                 </div>
@@ -167,15 +152,9 @@ export const SheetGuideModal: React.FC<SheetGuideModalProps> = ({
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => copyToClipboard('Date\tNoticeText', 'n_hd')}
-                      className="text-[11px] text-slate-600 hover:text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-300"
+                      className="text-[11px] text-slate-600 hover:text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-300 cursor-pointer"
                     >
                       {copiedKey === 'n_hd' ? 'কপি হয়েছে' : 'হেডার কপি'}
-                    </button>
-                    <button
-                      onClick={() => exportSheetCSV('notices')}
-                      className="text-[11px] text-amber-700 font-semibold hover:text-amber-900 bg-amber-100/60 px-2 py-0.5 rounded"
-                    >
-                      CSV ডাউনলোড
                     </button>
                   </div>
                 </div>
@@ -194,15 +173,9 @@ export const SheetGuideModal: React.FC<SheetGuideModalProps> = ({
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => copyToClipboard('TotalBalance\tMemberName\tStatus', 'f_hd')}
-                      className="text-[11px] text-slate-600 hover:text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-300"
+                      className="text-[11px] text-slate-600 hover:text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-300 cursor-pointer"
                     >
                       {copiedKey === 'f_hd' ? 'কপি হয়েছে' : 'হেডার কপি'}
-                    </button>
-                    <button
-                      onClick={() => exportSheetCSV('fund')}
-                      className="text-[11px] text-teal-700 font-semibold hover:text-teal-900 bg-teal-100/60 px-2 py-0.5 rounded"
-                    >
-                      CSV ডাউনলোড
                     </button>
                   </div>
                 </div>

@@ -3,7 +3,6 @@ import {
   BellRing, 
   Calendar, 
   Plus, 
-  Download, 
   ArrowLeft, 
   Pin, 
   Megaphone, 
@@ -17,7 +16,6 @@ import {
 } from 'lucide-react';
 import { Notice } from '../types';
 import { formatBengaliDate, toBengaliNumber } from '../utils/helpers';
-import { exportSheetCSV } from '../utils/storage';
 
 interface NoticeScreenProps {
   notices: Notice[];
@@ -138,16 +136,6 @@ export const NoticeScreen: React.FC<NoticeScreenProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => exportSheetCSV('notices')}
-            id="notices-export-csv-btn"
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
-            title="CSV ডাউনলোড করুন"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">CSV ডাউনলোড</span>
-          </button>
-
           {/* Admin Only: Add Notice Button */}
           {isAdmin && (
             <button
