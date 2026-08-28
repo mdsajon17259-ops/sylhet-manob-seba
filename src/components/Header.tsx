@@ -214,6 +214,20 @@ export const Header: React.FC<HeaderProps> = ({
               <Wallet className="w-3.5 h-3.5" />
               <span>ফান্ড হিসাব</span>
             </button>
+
+            <button
+              onClick={() => setActiveScreen('calendar')}
+              id="desktop-nav-calendar"
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeScreen === 'calendar'
+                  ? 'bg-amber-500 text-slate-950 shadow-xs ring-1 ring-amber-300 font-black'
+                  : 'text-amber-200 bg-emerald-950/40 hover:bg-emerald-800/80 hover:text-amber-100 border border-emerald-500/40'
+              }`}
+              title="ক্যালেন্ডার ও সরকারি ছুটি ২০২৬ দেখুন"
+            >
+              <Calendar className="w-3.5 h-3.5 text-amber-300" />
+              <span>ক্যালেন্ডার ও ছুটি</span>
+            </button>
           </div>
 
           <div className="text-[11px] text-emerald-200 font-medium hidden md:flex items-center gap-1">

@@ -2,7 +2,7 @@ export type BloodGroup = 'A+' | 'A-' | 'B+' | 'B-' | 'O+' | 'O-' | 'AB+' | 'AB-'
 
 export type PaymentStatus = 'Paid' | 'Due' | 'Expense' | 'Pending';
 
-export type ActiveScreen = 'home' | 'members' | 'blood' | 'notices' | 'fund' | 'admin';
+export type ActiveScreen = 'home' | 'members' | 'blood' | 'notices' | 'fund' | 'calendar' | 'admin';
 
 export interface Member {
   id: string;

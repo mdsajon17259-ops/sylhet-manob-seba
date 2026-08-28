@@ -35,6 +35,7 @@ import { MemberListScreen } from './components/MemberListScreen';
 import { BloodDonationScreen } from './components/BloodDonationScreen';
 import { NoticeScreen } from './components/NoticeScreen';
 import { FundScreen } from './components/FundScreen';
+import { CalendarScreen } from './components/CalendarScreen';
 import { AdminPanelScreen } from './components/AdminPanelScreen';
 import { AdminModal } from './components/AdminModal';
 import { EmergencyHelplineModal } from './components/EmergencyHelplineModal';
@@ -302,6 +303,12 @@ export default function App() {
             onUpdateManualTotalBalance={handleUpdateManualTotalBalance}
             paymentConfig={paymentConfig}
             isAdmin={isAdmin}
+            onBack={() => setActiveScreen('home')}
+          />
+        )}
+
+        {activeScreen === 'calendar' && (
+          <CalendarScreen
             onBack={() => setActiveScreen('home')}
           />
         )}

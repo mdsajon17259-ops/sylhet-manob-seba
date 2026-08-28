@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   Users, 
   Droplet, 
@@ -12,10 +12,14 @@ import {
   Sparkles,
   PhoneCall,
   SlidersHorizontal,
-  MapPin
+  MapPin,
+  CalendarDays,
+  Clock,
+  Flame
 } from 'lucide-react';
 import { ActiveScreen, OrganizationStats, Notice, OrganizationProfile, BloodDonor, BloodGroup } from '../types';
 import { toBengaliNumber, formatTaka, isDonorEligible } from '../utils/helpers';
+import { getFullDateSummary, BANGLADESH_HOLIDAYS_2026 } from '../utils/calendarData';
 
 interface HomeScreenProps {
   profile: OrganizationProfile;
@@ -40,6 +44,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   openAdminModal,
   openEmergencyModal,
 }) => {
+  const todaySummary = useMemo(() => getFullDateSummary(new Date()), []);
+  const nextHoliday = useMemo(() => {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    return BANGLADESH_HOLIDAYS_2026.find((h) => (h.endDateStr || h.dateStr) >= todayStr) || BANGLADESH_HOLIDAYS_2026[0];
+  }, []);
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* Latest Notice Ticker */}
@@ -245,6 +255,55 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </p>
             </div>
           </button>
+        </div>
+      </div>
+
+      {/* 5. ক্যলেন্ডার ও সরকারি ছুটি ২০২৬ Featured Card */}
+      <div 
+        onClick={() => onNavigate('calendar')}
+        id="home-btn-calendar"
+        className="bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-950 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-emerald-700/60 cursor-pointer hover:shadow-lg transition-all group relative overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 -mt-6 -mr-6 w-40 h-40 rounded-full bg-amber-400/10 blur-xl pointer-events-none"></div>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-2 max-w-xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="bg-amber-400/20 border border-amber-300/40 text-amber-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <Calendar className="w-3 h-3 text-amber-300" />
+                বাংলাদেশ সরকারি ক্যালেন্ডার ২০২৬
+              </span>
+              <span className="bg-emerald-800/80 border border-emerald-500/40 text-emerald-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                বাংলা (বঙ্গাব্দ) ও হিজরি সন
+              </span>
+            </div>
+
+            <div>
+              <h3 className="text-lg sm:text-xl font-black text-white group-hover:text-amber-200 transition-colors flex items-center gap-2">
+                <span>ক্যালেন্ডার ও সরকারি ছুটি ২০২৬</span>
+                <span className="text-xs bg-rose-600 text-white px-2 py-0.5 rounded-full font-bold">
+                  ১৬টি ছুটি
+                </span>
+              </h3>
+              <p className="text-xs text-emerald-100/90 mt-1 leading-relaxed">
+                আজ: <strong className="text-white font-bold">{todaySummary.englishFormatted} ({todaySummary.dayName})</strong> • <span className="text-amber-200 font-bold">{todaySummary.banglaFormatted}</span> • <span className="text-emerald-200 font-bold">{todaySummary.hijriFormatted}</span>
+              </p>
+            </div>
+
+            {nextHoliday && (
+              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-xs border border-white/15 px-3 py-1.5 rounded-xl text-xs text-emerald-100">
+                <Flame className="w-3.5 h-3.5 text-amber-300" />
+                <span>পরবর্তী ছুটি: <strong className="text-white">{nextHoliday.nameBn}</strong> ({nextHoliday.dateStr})</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 self-start md:self-auto">
+            <span className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl shadow-xs flex items-center gap-1.5 transition whitespace-nowrap group-hover:scale-105">
+              <CalendarDays className="w-4 h-4" />
+              <span>সম্পূর্ণ ক্যালেন্ডার ও ছুটির তালিকা দেখুন</span>
+              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </span>
+          </div>
         </div>
       </div>
 
