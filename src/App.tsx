@@ -41,6 +41,7 @@ import { AdminModal } from './components/AdminModal';
 import { EmergencyHelplineModal } from './components/EmergencyHelplineModal';
 import { SheetGuideModal } from './components/SheetGuideModal';
 import { BottomNav } from './components/BottomNav';
+import { OfflineStatusBanner } from './components/OfflineStatusBanner';
 import { HeartHandshake, MapPin, ShieldCheck, Heart } from 'lucide-react';
 
 export default function App() {
@@ -62,30 +63,61 @@ export default function App() {
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
   const [isSheetGuideOpen, setIsSheetGuideOpen] = useState(false);
 
-  // Sync with LocalStorage
+  // Real-time synchronization across Admin Panel, Member views, and other browser tabs
   useEffect(() => {
-    saveOrgProfile(profile);
-  }, [profile]);
+    const syncAllFromStorage = () => {
+      setProfile(loadOrgProfile());
+      setMembers(loadMembers());
+      setDonors(loadDonors());
+      setNotices(loadNotices());
+      setFunds(loadFunds());
+      setManualTotalBalance(loadManualTotalBalance());
+      setPaymentConfig(loadPaymentSettings());
+    };
 
-  useEffect(() => {
-    saveMembers(members);
-  }, [members]);
+    // 1. Cross-tab storage event
+    window.addEventListener('storage', syncAllFromStorage);
+    // 2. In-app custom sync event
+    window.addEventListener('pms_data_updated', syncAllFromStorage);
+    // 3. Tab visibility / Focus event
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncAllFromStorage();
+      }
+    };
+    window.addEventListener('focus', syncAllFromStorage);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
-  useEffect(() => {
-    saveDonors(donors);
-  }, [donors]);
+    // 4. BroadcastChannel support for modern browsers
+    let bc: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        bc = new BroadcastChannel('pms_realtime_sync_channel');
+        bc.onmessage = (event) => {
+          if (event.data && event.data.type === 'PMS_DATA_SYNC') {
+            syncAllFromStorage();
+          }
+        };
+      } catch (e) {
+        console.warn('BroadcastChannel setup error:', e);
+      }
+    }
 
-  useEffect(() => {
-    saveNotices(notices);
-  }, [notices]);
+    return () => {
+      window.removeEventListener('storage', syncAllFromStorage);
+      window.removeEventListener('pms_data_updated', syncAllFromStorage);
+      window.removeEventListener('focus', syncAllFromStorage);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (bc) {
+        bc.close();
+      }
+    };
+  }, []);
 
-  useEffect(() => {
-    saveFunds(funds);
-  }, [funds]);
-
-  useEffect(() => {
-    savePaymentSettings(paymentConfig);
-  }, [paymentConfig]);
+  const handleUpdateProfile = (newProfile: OrganizationProfile) => {
+    setProfile(newProfile);
+    saveOrgProfile(newProfile);
+  };
 
   const handleUpdatePaymentConfig = (newConfig: PaymentGatewayConfig) => {
     setPaymentConfig(newConfig);
@@ -98,16 +130,28 @@ export default function App() {
       ...newMember,
       id: `m-${Date.now()}`
     };
-    setMembers(prev => [member, ...prev]);
+    setMembers(prev => {
+      const updated = [member, ...prev];
+      saveMembers(updated);
+      return updated;
+    });
   };
 
   const handleEditMember = (updatedMember: Member) => {
-    setMembers(prev => prev.map(m => m.id === updatedMember.id ? updatedMember : m));
+    setMembers(prev => {
+      const updated = prev.map(m => m.id === updatedMember.id ? updatedMember : m);
+      saveMembers(updated);
+      return updated;
+    });
   };
 
   const handleDeleteMember = (id: string, name: string) => {
     if (confirm(`আপনি কি সদস্য "${name}" কে মুছে ফেলতে চান?`)) {
-      setMembers(prev => prev.filter(m => m.id !== id));
+      setMembers(prev => {
+        const updated = prev.filter(m => m.id !== id);
+        saveMembers(updated);
+        return updated;
+      });
     }
   };
 
@@ -117,16 +161,28 @@ export default function App() {
       ...newDonor,
       id: `d-${Date.now()}`
     };
-    setDonors(prev => [donor, ...prev]);
+    setDonors(prev => {
+      const updated = [donor, ...prev];
+      saveDonors(updated);
+      return updated;
+    });
   };
 
   const handleEditDonor = (updatedDonor: BloodDonor) => {
-    setDonors(prev => prev.map(d => d.id === updatedDonor.id ? updatedDonor : d));
+    setDonors(prev => {
+      const updated = prev.map(d => d.id === updatedDonor.id ? updatedDonor : d);
+      saveDonors(updated);
+      return updated;
+    });
   };
 
   const handleDeleteDonor = (id: string, name: string) => {
     if (confirm(`আপনি কি রক্তদাতা "${name}" এর তথ্য মুছে ফেলতে চান?`)) {
-      setDonors(prev => prev.filter(d => d.id !== id));
+      setDonors(prev => {
+        const updated = prev.filter(d => d.id !== id);
+        saveDonors(updated);
+        return updated;
+      });
     }
   };
 
@@ -136,16 +192,28 @@ export default function App() {
       ...newNotice,
       id: `n-${Date.now()}`
     };
-    setNotices(prev => [notice, ...prev]);
+    setNotices(prev => {
+      const updated = [notice, ...prev];
+      saveNotices(updated);
+      return updated;
+    });
   };
 
   const handleEditNotice = (updatedNotice: Notice) => {
-    setNotices(prev => prev.map(n => n.id === updatedNotice.id ? updatedNotice : n));
+    setNotices(prev => {
+      const updated = prev.map(n => n.id === updatedNotice.id ? updatedNotice : n);
+      saveNotices(updated);
+      return updated;
+    });
   };
 
   const handleDeleteNotice = (id: string) => {
     if (confirm('আপনি কি এই নোটিশটি মুছে ফেলতে চান?')) {
-      setNotices(prev => prev.filter(n => n.id !== id));
+      setNotices(prev => {
+        const updated = prev.filter(n => n.id !== id);
+        saveNotices(updated);
+        return updated;
+      });
     }
   };
 
@@ -155,31 +223,47 @@ export default function App() {
       ...newFund,
       id: `f-${Date.now()}`
     };
-    setFunds(prev => [fund, ...prev]);
+    setFunds(prev => {
+      const updated = [fund, ...prev];
+      saveFunds(updated);
+      return updated;
+    });
   };
 
   const handleEditFund = (updatedFund: FundRecord) => {
-    setFunds(prev => prev.map(f => f.id === updatedFund.id ? updatedFund : f));
+    setFunds(prev => {
+      const updated = prev.map(f => f.id === updatedFund.id ? updatedFund : f);
+      saveFunds(updated);
+      return updated;
+    });
   };
 
   const handleDeleteFund = (id: string) => {
     if (confirm('আপনি কি এই ফান্ড এন্ট্রিটি মুছে ফেলতে চান?')) {
-      setFunds(prev => prev.filter(f => f.id !== id));
+      setFunds(prev => {
+        const updated = prev.filter(f => f.id !== id);
+        saveFunds(updated);
+        return updated;
+      });
     }
   };
 
   const handleToggleFundStatus = (id: string, newStatus: PaymentStatus) => {
-    setFunds(prev => prev.map(f => {
-      if (f.id === id) {
-        return {
-          ...f,
-          status: newStatus,
-          approvedAt: newStatus === 'Paid' ? new Date().toISOString() : f.approvedAt,
-          date: f.date || new Date().toISOString().split('T')[0]
-        };
-      }
-      return f;
-    }));
+    setFunds(prev => {
+      const updated = prev.map(f => {
+        if (f.id === id) {
+          return {
+            ...f,
+            status: newStatus,
+            approvedAt: newStatus === 'Paid' ? new Date().toISOString() : f.approvedAt,
+            date: f.date || new Date().toISOString().split('T')[0]
+          };
+        }
+        return f;
+      });
+      saveFunds(updated);
+      return updated;
+    });
   };
 
   const handleUpdateManualTotalBalance = (val: number | null) => {
@@ -218,6 +302,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-between text-slate-800 selection:bg-emerald-200">
+      {/* Offline Status Reassurance Banner */}
+      <OfflineStatusBanner />
+
       {/* Top Header */}
       <Header
         profile={profile}
@@ -322,7 +409,7 @@ export default function App() {
             funds={funds}
             paymentConfig={paymentConfig}
             onUpdatePaymentConfig={handleUpdatePaymentConfig}
-            onUpdateProfile={setProfile}
+            onUpdateProfile={handleUpdateProfile}
             onAddMember={handleAddMember}
             onEditMember={handleEditMember}
             onDeleteMember={handleDeleteMember}

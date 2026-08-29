@@ -279,9 +279,14 @@ export const EmergencyHelplineModal: React.FC<EmergencyHelplineModalProps> = ({
               <PhoneCall className="w-6 h-6 text-emerald-700" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-900 leading-snug">
-                জরুরি হেল্পলাইন ও জরুরি সেবা
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-black text-slate-900 leading-snug">
+                  জরুরি হেল্পলাইন ও জরুরি সেবা
+                </h3>
+                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-300">
+                  অফলাইন সক্রিয়
+                </span>
+              </div>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
                 {profile.name} • চট্টগ্রাম পতেঙ্গা থানা ও জাতীয় হেল্পলাইন
               </p>

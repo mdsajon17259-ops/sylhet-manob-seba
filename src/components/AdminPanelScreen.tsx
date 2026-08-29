@@ -193,6 +193,10 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
   );
 
   useEffect(() => {
+    setEditProfileData(profile);
+  }, [profile]);
+
+  useEffect(() => {
     if (initialPaymentConfig) {
       setPaymentConfig(initialPaymentConfig);
     }

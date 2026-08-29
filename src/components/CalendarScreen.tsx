@@ -169,6 +169,10 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({ onBack }) => {
               <span className="bg-amber-100 text-amber-900 text-[11px] font-bold px-2 py-0.5 rounded-full border border-amber-200">
                 ১৪৩২–১৪৩৩ বঙ্গাব্দ
               </span>
+              <span className="bg-teal-50 text-teal-800 text-[11px] font-bold px-2 py-0.5 rounded-full border border-teal-200 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-teal-600" />
+                ১০০% অফলাইন কার্যকর
+              </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
               <CalendarIcon className="w-6 h-6 text-emerald-600" />

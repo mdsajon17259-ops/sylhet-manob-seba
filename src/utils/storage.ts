@@ -12,6 +12,50 @@ const STORAGE_KEYS = {
   PAYMENT_SETTINGS: 'pms_payment_settings_v2',
 };
 
+export const PMS_SYNC_CHANNEL_NAME = 'pms_realtime_sync_channel';
+export const PMS_SYNC_EVENT_NAME = 'pms_data_updated';
+
+// Cross-tab Broadcast Channel initialization
+let broadcastChannel: BroadcastChannel | null = null;
+if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
+  try {
+    broadcastChannel = new BroadcastChannel(PMS_SYNC_CHANNEL_NAME);
+  } catch (e) {
+    console.warn('BroadcastChannel initialization skipped:', e);
+  }
+}
+
+/**
+ * Dispatches real-time updates to all tabs, windows, and in-app listeners
+ */
+export function notifyDataChange(key: string, data?: any): void {
+  if (typeof window === 'undefined') return;
+
+  // 1. Dispatch custom event for same-window / in-app instant re-renders
+  try {
+    window.dispatchEvent(
+      new CustomEvent(PMS_SYNC_EVENT_NAME, {
+        detail: { key, data, timestamp: Date.now() }
+      })
+    );
+  } catch (e) {
+    console.error('Error dispatching sync custom event:', e);
+  }
+
+  // 2. Broadcast to other tabs/windows in real time
+  if (broadcastChannel) {
+    try {
+      broadcastChannel.postMessage({
+        type: 'PMS_DATA_SYNC',
+        key,
+        timestamp: Date.now()
+      });
+    } catch (e) {
+      console.warn('Error posting sync broadcast message:', e);
+    }
+  }
+}
+
 // Admin PIN normalization and verification
 export function normalizePin(pin: string): string {
   if (!pin) return '';
@@ -79,6 +123,7 @@ export function loadOrgProfile(): OrganizationProfile {
 export function saveOrgProfile(profile: OrganizationProfile): void {
   try {
     localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
+    notifyDataChange(STORAGE_KEYS.PROFILE, profile);
   } catch (e) {
     console.error('Error saving org profile', e);
   }
@@ -98,6 +143,7 @@ export function loadMembers(): Member[] {
 export function saveMembers(members: Member[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(members));
+    notifyDataChange(STORAGE_KEYS.MEMBERS, members);
   } catch (e) {
     console.error('Error saving members', e);
   }
@@ -117,6 +163,7 @@ export function loadDonors(): BloodDonor[] {
 export function saveDonors(donors: BloodDonor[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.DONORS, JSON.stringify(donors));
+    notifyDataChange(STORAGE_KEYS.DONORS, donors);
   } catch (e) {
     console.error('Error saving donors', e);
   }
@@ -136,6 +183,7 @@ export function loadNotices(): Notice[] {
 export function saveNotices(notices: Notice[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.NOTICES, JSON.stringify(notices));
+    notifyDataChange(STORAGE_KEYS.NOTICES, notices);
   } catch (e) {
     console.error('Error saving notices', e);
   }
@@ -155,6 +203,7 @@ export function loadFunds(): FundRecord[] {
 export function saveFunds(funds: FundRecord[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.FUNDS, JSON.stringify(funds));
+    notifyDataChange(STORAGE_KEYS.FUNDS, funds);
   } catch (e) {
     console.error('Error saving funds', e);
   }
@@ -181,6 +230,7 @@ export function saveManualTotalBalance(amount: number | null): void {
     } else {
       localStorage.setItem(STORAGE_KEYS.TOTAL_ORG_BALANCE, amount.toString());
     }
+    notifyDataChange(STORAGE_KEYS.TOTAL_ORG_BALANCE, amount);
   } catch (e) {
     console.error('Error saving manual total balance', e);
   }
@@ -218,6 +268,7 @@ export function loadPaymentSettings(): PaymentGatewayConfig {
 export function savePaymentSettings(settings: PaymentGatewayConfig): void {
   try {
     localStorage.setItem(STORAGE_KEYS.PAYMENT_SETTINGS, JSON.stringify(settings));
+    notifyDataChange(STORAGE_KEYS.PAYMENT_SETTINGS, settings);
   } catch (e) {
     console.error('Error saving payment settings', e);
   }
@@ -231,6 +282,7 @@ export function resetAllData(): void {
   localStorage.removeItem(STORAGE_KEYS.NOTICES);
   localStorage.removeItem(STORAGE_KEYS.FUNDS);
   localStorage.removeItem(STORAGE_KEYS.TOTAL_ORG_BALANCE);
+  notifyDataChange('RESET_ALL');
 }
 
 // Clear all data to empty
@@ -240,6 +292,7 @@ export function clearAllData(): void {
   localStorage.setItem(STORAGE_KEYS.NOTICES, JSON.stringify([]));
   localStorage.setItem(STORAGE_KEYS.FUNDS, JSON.stringify([]));
   localStorage.removeItem(STORAGE_KEYS.TOTAL_ORG_BALANCE);
+  notifyDataChange('CLEAR_ALL');
 }
 
 // Export CSV for any data category

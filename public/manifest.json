@@ -1,0 +1,17 @@
+{
+  "name": "সিলেট মানব সেবা সংগঠন",
+  "short_name": "মানব সেবা",
+  "description": "সিলেট মানব সেবা সংগঠন (স্থাপিত : ১৫/০৮/২০২২ইং) - সদস্য তালিকা, রক্তদান ডিরেক্টরি, ক্যালেন্ডার ও সরকারি ছুটি ২০২৬ এবং জরুরি সেবা",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#064e3b",
+  "theme_color": "#065f46",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

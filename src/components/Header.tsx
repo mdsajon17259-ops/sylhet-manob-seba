@@ -11,9 +11,12 @@ import {
   Users,
   Droplet,
   BellRing,
-  Wallet
+  Wallet,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { ActiveScreen, OrganizationProfile } from '../types';
+import { useOfflineStatus } from '../hooks/useOfflineStatus';
 import orgLogo from '../assets/images/org_logo_1787709579485.jpg';
 
 interface HeaderProps {
@@ -35,6 +38,8 @@ export const Header: React.FC<HeaderProps> = ({
   openAdminModal,
   openEmergencyModal,
 }) => {
+  const { isOnline } = useOfflineStatus();
+
   return (
     <header className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 text-white shadow-md sticky top-0 z-30">
       {/* Top Micro Bar */}
@@ -51,6 +56,19 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {/* Offline / Online Status Pill */}
+          {!isOnline ? (
+            <span className="flex items-center gap-1 bg-amber-500/30 text-amber-200 border border-amber-400/60 px-2 py-0.5 rounded-lg text-[10px] font-bold animate-pulse">
+              <WifiOff className="w-3 h-3 text-amber-300" />
+              <span>অফলাইন মোড</span>
+            </span>
+          ) : (
+            <span className="hidden sm:flex items-center gap-1 text-emerald-200/90 text-[10px] font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>অনলাইন</span>
+            </span>
+          )}
+
           <button 
             onClick={openEmergencyModal}
             id="emergency-top-btn"
