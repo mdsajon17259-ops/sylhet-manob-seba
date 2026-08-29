@@ -25,9 +25,11 @@ import {
   saveManualTotalBalance, 
   loadPaymentSettings,
   savePaymentSettings,
+  populateLocalStorageFromServer,
   resetAllData, 
   clearAllData 
 } from './utils/storage';
+import { fetchServerDatabase } from './utils/serverApi';
 import { isDonorEligible } from './utils/helpers';
 import { Header } from './components/Header';
 import { HomeScreen } from './components/HomeScreen';
@@ -75,17 +77,39 @@ export default function App() {
       setPaymentConfig(loadPaymentSettings());
     };
 
+    // Load and sync from central server database (prevents data loss if device cache/data is cleared)
+    const syncWithServer = async () => {
+      try {
+        const serverData = await fetchServerDatabase();
+        if (serverData) {
+          populateLocalStorageFromServer(serverData);
+          syncAllFromStorage();
+        }
+      } catch (e) {
+        console.warn('Server sync error on initialization:', e);
+      }
+    };
+
+    // Initial server fetch
+    syncWithServer();
+
     // 1. Cross-tab storage event
     window.addEventListener('storage', syncAllFromStorage);
     // 2. In-app custom sync event
     window.addEventListener('pms_data_updated', syncAllFromStorage);
-    // 3. Tab visibility / Focus event
+    // 3. Tab visibility / Focus event & Network reconnect
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         syncAllFromStorage();
+        syncWithServer();
       }
     };
+    const handleOnline = () => {
+      syncWithServer();
+    };
+
     window.addEventListener('focus', syncAllFromStorage);
+    window.addEventListener('online', handleOnline);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // 4. BroadcastChannel support for modern browsers
@@ -107,6 +131,7 @@ export default function App() {
       window.removeEventListener('storage', syncAllFromStorage);
       window.removeEventListener('pms_data_updated', syncAllFromStorage);
       window.removeEventListener('focus', syncAllFromStorage);
+      window.removeEventListener('online', handleOnline);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (bc) {
         bc.close();

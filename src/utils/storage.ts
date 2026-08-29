@@ -1,7 +1,8 @@
 import { Member, BloodDonor, Notice, FundRecord, OrganizationProfile, PaymentGatewayConfig } from '../types';
 import { INITIAL_MEMBERS, INITIAL_DONORS, INITIAL_NOTICES, INITIAL_FUNDS, INITIAL_ORG_PROFILE } from '../data/initialData';
+import { syncKeyToServer, resetServerDatabase, clearServerDatabase, ServerDatabasePayload } from './serverApi';
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   PROFILE: 'pms_profile_v2',
   MEMBERS: 'pms_members_v2',
   DONORS: 'pms_donors_v2',
@@ -56,6 +57,46 @@ export function notifyDataChange(key: string, data?: any): void {
   }
 }
 
+/**
+ * Hydrates local storage with server-persisted database state
+ */
+export function populateLocalStorageFromServer(serverDb: ServerDatabasePayload): void {
+  if (typeof window === 'undefined' || !serverDb) return;
+  try {
+    if (serverDb.profile) {
+      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(serverDb.profile));
+    }
+    if (Array.isArray(serverDb.members)) {
+      localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(serverDb.members));
+    }
+    if (Array.isArray(serverDb.donors)) {
+      localStorage.setItem(STORAGE_KEYS.DONORS, JSON.stringify(serverDb.donors));
+    }
+    if (Array.isArray(serverDb.notices)) {
+      localStorage.setItem(STORAGE_KEYS.NOTICES, JSON.stringify(serverDb.notices));
+    }
+    if (Array.isArray(serverDb.funds)) {
+      localStorage.setItem(STORAGE_KEYS.FUNDS, JSON.stringify(serverDb.funds));
+    }
+    if (serverDb.manualTotalBalance !== undefined) {
+      if (serverDb.manualTotalBalance === null) {
+        localStorage.removeItem(STORAGE_KEYS.TOTAL_ORG_BALANCE);
+      } else {
+        localStorage.setItem(STORAGE_KEYS.TOTAL_ORG_BALANCE, serverDb.manualTotalBalance.toString());
+      }
+    }
+    if (serverDb.paymentConfig) {
+      localStorage.setItem(STORAGE_KEYS.PAYMENT_SETTINGS, JSON.stringify(serverDb.paymentConfig));
+    }
+    if (serverDb.adminPin) {
+      localStorage.setItem(STORAGE_KEYS.ADMIN_PIN, serverDb.adminPin);
+    }
+    notifyDataChange('HYDRATE_FROM_SERVER', serverDb);
+  } catch (e) {
+    console.error('Error populating local storage from server state:', e);
+  }
+}
+
 // Admin PIN normalization and verification
 export function normalizePin(pin: string): string {
   if (!pin) return '';
@@ -74,6 +115,7 @@ export function getAdminPin(): string {
 export function setAdminPin(pin: string): void {
   const cleanPin = pin.trim();
   localStorage.setItem(STORAGE_KEYS.ADMIN_PIN, cleanPin);
+  syncKeyToServer('adminPin', cleanPin);
 }
 
 export function verifyAdminPin(inputPin: string): boolean {
@@ -124,6 +166,7 @@ export function saveOrgProfile(profile: OrganizationProfile): void {
   try {
     localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
     notifyDataChange(STORAGE_KEYS.PROFILE, profile);
+    syncKeyToServer('profile', profile);
   } catch (e) {
     console.error('Error saving org profile', e);
   }
@@ -144,6 +187,7 @@ export function saveMembers(members: Member[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(members));
     notifyDataChange(STORAGE_KEYS.MEMBERS, members);
+    syncKeyToServer('members', members);
   } catch (e) {
     console.error('Error saving members', e);
   }
@@ -164,6 +208,7 @@ export function saveDonors(donors: BloodDonor[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.DONORS, JSON.stringify(donors));
     notifyDataChange(STORAGE_KEYS.DONORS, donors);
+    syncKeyToServer('donors', donors);
   } catch (e) {
     console.error('Error saving donors', e);
   }
@@ -184,6 +229,7 @@ export function saveNotices(notices: Notice[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.NOTICES, JSON.stringify(notices));
     notifyDataChange(STORAGE_KEYS.NOTICES, notices);
+    syncKeyToServer('notices', notices);
   } catch (e) {
     console.error('Error saving notices', e);
   }
@@ -204,6 +250,7 @@ export function saveFunds(funds: FundRecord[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.FUNDS, JSON.stringify(funds));
     notifyDataChange(STORAGE_KEYS.FUNDS, funds);
+    syncKeyToServer('funds', funds);
   } catch (e) {
     console.error('Error saving funds', e);
   }
@@ -231,6 +278,7 @@ export function saveManualTotalBalance(amount: number | null): void {
       localStorage.setItem(STORAGE_KEYS.TOTAL_ORG_BALANCE, amount.toString());
     }
     notifyDataChange(STORAGE_KEYS.TOTAL_ORG_BALANCE, amount);
+    syncKeyToServer('manualTotalBalance', amount);
   } catch (e) {
     console.error('Error saving manual total balance', e);
   }
@@ -269,6 +317,7 @@ export function savePaymentSettings(settings: PaymentGatewayConfig): void {
   try {
     localStorage.setItem(STORAGE_KEYS.PAYMENT_SETTINGS, JSON.stringify(settings));
     notifyDataChange(STORAGE_KEYS.PAYMENT_SETTINGS, settings);
+    syncKeyToServer('paymentConfig', settings);
   } catch (e) {
     console.error('Error saving payment settings', e);
   }
@@ -283,6 +332,7 @@ export function resetAllData(): void {
   localStorage.removeItem(STORAGE_KEYS.FUNDS);
   localStorage.removeItem(STORAGE_KEYS.TOTAL_ORG_BALANCE);
   notifyDataChange('RESET_ALL');
+  resetServerDatabase();
 }
 
 // Clear all data to empty
@@ -293,6 +343,7 @@ export function clearAllData(): void {
   localStorage.setItem(STORAGE_KEYS.FUNDS, JSON.stringify([]));
   localStorage.removeItem(STORAGE_KEYS.TOTAL_ORG_BALANCE);
   notifyDataChange('CLEAR_ALL');
+  clearServerDatabase();
 }
 
 // Export CSV for any data category
