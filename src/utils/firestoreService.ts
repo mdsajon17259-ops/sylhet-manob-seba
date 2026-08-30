@@ -48,6 +48,29 @@ export const DEFAULT_APP_DATA: AppFirestoreData = {
   adminPin: '1234'
 };
 
+/**
+ * Deep sanitization to eliminate 'undefined' values before passing to Firestore SDK.
+ * Firestore throws a hard error if any field is undefined.
+ */
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === undefined) {
+    return null as any;
+  }
+  if (data === null || typeof data !== 'object') {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeForFirestore(item)) as any;
+  }
+  const cleanObj: Record<string, any> = {};
+  for (const [key, val] of Object.entries(data)) {
+    if (val !== undefined) {
+      cleanObj[key] = sanitizeForFirestore(val);
+    }
+  }
+  return cleanObj as T;
+}
+
 // Main Document References
 export const ORG_DOC_PATH = 'organizations/sylhetmanobseba';
 export const ORG_DOC_REF = doc(db, 'organizations', 'sylhetmanobseba');
@@ -58,7 +81,7 @@ export const DONORS_COLLECTION = collection(db, 'donors');
 export const NOTICES_COLLECTION = collection(db, 'notices');
 export const FUNDS_COLLECTION = collection(db, 'funds');
 
-// Live in-memory cache to prevent race conditions during multi-collection onSnapshot merges
+// In-memory active cache
 let activeCache: AppFirestoreData = {
   profile: INITIAL_ORG_PROFILE,
   members: INITIAL_MEMBERS,
@@ -71,46 +94,500 @@ let activeCache: AppFirestoreData = {
 };
 
 /**
- * Initializes Firestore document and collections with default data if completely empty
+ * Save a single member directly to Firestore members collection and mirror in org doc
  */
-export async function initFirestoreDefaults(): Promise<void> {
+export async function saveSingleMemberToFirestore(member: Member): Promise<boolean> {
   try {
-    const docSnap = await getDoc(ORG_DOC_REF);
-    if (!docSnap.exists()) {
-      await setDoc(ORG_DOC_REF, {
-        ...DEFAULT_APP_DATA,
-        updatedAt: serverTimestamp()
-      });
-      console.log('[Firestore] Default organization document initialized.');
+    const cleanMember = sanitizeForFirestore(member);
+    const mRef = doc(db, 'members', member.id);
+    await setDoc(mRef, cleanMember, { merge: true });
 
+    // Update active cache
+    const existingIndex = activeCache.members.findIndex((m) => m.id === member.id);
+    if (existingIndex >= 0) {
+      activeCache.members[existingIndex] = member;
+    } else {
+      activeCache.members = [member, ...activeCache.members];
+    }
+
+    // Mirror to main org doc
+    await setDoc(
+      ORG_DOC_REF,
+      {
+        members: sanitizeForFirestore(activeCache.members),
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (e) {
+    console.error('[Firestore] Error saving single member:', e);
+    return false;
+  }
+}
+
+/**
+ * Delete a single member from Firestore members collection and org doc
+ */
+export async function deleteMemberFromFirestore(memberId: string): Promise<boolean> {
+  try {
+    const mRef = doc(db, 'members', memberId);
+    await deleteDoc(mRef);
+
+    // Update active cache
+    activeCache.members = activeCache.members.filter((m) => m.id !== memberId);
+
+    // Mirror to main org doc
+    await setDoc(
+      ORG_DOC_REF,
+      {
+        members: sanitizeForFirestore(activeCache.members),
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (e) {
+    console.error('[Firestore] Error deleting single member:', e);
+    return false;
+  }
+}
+
+/**
+ * Save a single blood donor to Firestore donors collection
+ */
+export async function saveSingleDonorToFirestore(donor: BloodDonor): Promise<boolean> {
+  try {
+    const cleanDonor = sanitizeForFirestore(donor);
+    const dRef = doc(db, 'donors', donor.id);
+    await setDoc(dRef, cleanDonor, { merge: true });
+
+    const existingIndex = activeCache.donors.findIndex((d) => d.id === donor.id);
+    if (existingIndex >= 0) {
+      activeCache.donors[existingIndex] = donor;
+    } else {
+      activeCache.donors = [donor, ...activeCache.donors];
+    }
+
+    await setDoc(
+      ORG_DOC_REF,
+      {
+        donors: sanitizeForFirestore(activeCache.donors),
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (e) {
+    console.error('[Firestore] Error saving single donor:', e);
+    return false;
+  }
+}
+
+/**
+ * Delete a single donor from Firestore
+ */
+export async function deleteDonorFromFirestore(donorId: string): Promise<boolean> {
+  try {
+    const dRef = doc(db, 'donors', donorId);
+    await deleteDoc(dRef);
+
+    activeCache.donors = activeCache.donors.filter((d) => d.id !== donorId);
+
+    await setDoc(
+      ORG_DOC_REF,
+      {
+        donors: sanitizeForFirestore(activeCache.donors),
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (e) {
+    console.error('[Firestore] Error deleting single donor:', e);
+    return false;
+  }
+}
+
+/**
+ * Save a single notice to Firestore
+ */
+export async function saveSingleNoticeToFirestore(notice: Notice): Promise<boolean> {
+  try {
+    const cleanNotice = sanitizeForFirestore(notice);
+    const nRef = doc(db, 'notices', notice.id);
+    await setDoc(nRef, cleanNotice, { merge: true });
+
+    const existingIndex = activeCache.notices.findIndex((n) => n.id === notice.id);
+    if (existingIndex >= 0) {
+      activeCache.notices[existingIndex] = notice;
+    } else {
+      activeCache.notices = [notice, ...activeCache.notices];
+    }
+
+    await setDoc(
+      ORG_DOC_REF,
+      {
+        notices: sanitizeForFirestore(activeCache.notices),
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (e) {
+    console.error('[Firestore] Error saving single notice:', e);
+    return false;
+  }
+}
+
+/**
+ * Delete a single notice from Firestore
+ */
+export async function deleteNoticeFromFirestore(noticeId: string): Promise<boolean> {
+  try {
+    const nRef = doc(db, 'notices', noticeId);
+    await deleteDoc(nRef);
+
+    activeCache.notices = activeCache.notices.filter((n) => n.id !== noticeId);
+
+    await setDoc(
+      ORG_DOC_REF,
+      {
+        notices: sanitizeForFirestore(activeCache.notices),
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (e) {
+    console.error('[Firestore] Error deleting single notice:', e);
+    return false;
+  }
+}
+
+/**
+ * Save a single fund record to Firestore
+ */
+export async function saveSingleFundToFirestore(fund: FundRecord): Promise<boolean> {
+  try {
+    const cleanFund = sanitizeForFirestore(fund);
+    const fRef = doc(db, 'funds', fund.id);
+    await setDoc(fRef, cleanFund, { merge: true });
+
+    const existingIndex = activeCache.funds.findIndex((f) => f.id === fund.id);
+    if (existingIndex >= 0) {
+      activeCache.funds[existingIndex] = fund;
+    } else {
+      activeCache.funds = [fund, ...activeCache.funds];
+    }
+
+    await setDoc(
+      ORG_DOC_REF,
+      {
+        funds: sanitizeForFirestore(activeCache.funds),
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (e) {
+    console.error('[Firestore] Error saving single fund:', e);
+    return false;
+  }
+}
+
+/**
+ * Delete a single fund record from Firestore
+ */
+export async function deleteFundFromFirestore(fundId: string): Promise<boolean> {
+  try {
+    const fRef = doc(db, 'funds', fundId);
+    await deleteDoc(fRef);
+
+    activeCache.funds = activeCache.funds.filter((f) => f.id !== fundId);
+
+    await setDoc(
+      ORG_DOC_REF,
+      {
+        funds: sanitizeForFirestore(activeCache.funds),
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (e) {
+    console.error('[Firestore] Error deleting single fund:', e);
+    return false;
+  }
+}
+
+/**
+ * Update an entire key in Firestore (members, donors, notices, funds, profile, etc.)
+ */
+export async function updateFirestoreKey(key: keyof AppFirestoreData, value: any): Promise<boolean> {
+  try {
+    const cleanValue = sanitizeForFirestore(value);
+    (activeCache as any)[key] = cleanValue;
+
+    // 1. Update in main document
+    await setDoc(
+      ORG_DOC_REF,
+      {
+        [key]: cleanValue,
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+
+    // 2. Collection synchronization
+    if (key === 'members' && Array.isArray(cleanValue)) {
       try {
         const batch = writeBatch(db);
-        DEFAULT_APP_DATA.members.forEach((m) => {
-          batch.set(doc(db, 'members', m.id), m);
+        const currentIds = new Set<string>();
+
+        cleanValue.forEach((m: Member) => {
+          if (m && m.id) {
+            currentIds.add(m.id);
+            const mRef = doc(db, 'members', m.id);
+            batch.set(mRef, m, { merge: true });
+          }
         });
-        DEFAULT_APP_DATA.donors.forEach((d) => {
-          batch.set(doc(db, 'donors', d.id), d);
-        });
-        DEFAULT_APP_DATA.notices.forEach((n) => {
-          batch.set(doc(db, 'notices', n.id), n);
-        });
-        DEFAULT_APP_DATA.funds.forEach((f) => {
-          batch.set(doc(db, 'funds', f.id), f);
-        });
+
+        // Cleanup removed members
+        try {
+          const snap = await getDocs(MEMBERS_COLLECTION);
+          snap.docs.forEach((d) => {
+            if (!currentIds.has(d.id)) {
+              batch.delete(d.ref);
+            }
+          });
+        } catch (snapErr) {}
+
         await batch.commit();
-        console.log('[Firestore] Default collections initialized.');
-      } catch (colErr) {
-        console.warn('[Firestore] Batch init collections skipped:', colErr);
+      } catch (err) {
+        console.warn('[Firestore] Batch members sync error:', err);
+      }
+    } else if (key === 'donors' && Array.isArray(cleanValue)) {
+      try {
+        const batch = writeBatch(db);
+        const currentIds = new Set<string>();
+
+        cleanValue.forEach((d: BloodDonor) => {
+          if (d && d.id) {
+            currentIds.add(d.id);
+            const dRef = doc(db, 'donors', d.id);
+            batch.set(dRef, d, { merge: true });
+          }
+        });
+
+        try {
+          const snap = await getDocs(DONORS_COLLECTION);
+          snap.docs.forEach((docItem) => {
+            if (!currentIds.has(docItem.id)) {
+              batch.delete(docItem.ref);
+            }
+          });
+        } catch (snapErr) {}
+
+        await batch.commit();
+      } catch (err) {
+        console.warn('[Firestore] Batch donors sync error:', err);
+      }
+    } else if (key === 'notices' && Array.isArray(cleanValue)) {
+      try {
+        const batch = writeBatch(db);
+        const currentIds = new Set<string>();
+
+        cleanValue.forEach((n: Notice) => {
+          if (n && n.id) {
+            currentIds.add(n.id);
+            const nRef = doc(db, 'notices', n.id);
+            batch.set(nRef, n, { merge: true });
+          }
+        });
+
+        try {
+          const snap = await getDocs(NOTICES_COLLECTION);
+          snap.docs.forEach((docItem) => {
+            if (!currentIds.has(docItem.id)) {
+              batch.delete(docItem.ref);
+            }
+          });
+        } catch (snapErr) {}
+
+        await batch.commit();
+      } catch (err) {
+        console.warn('[Firestore] Batch notices sync error:', err);
+      }
+    } else if (key === 'funds' && Array.isArray(cleanValue)) {
+      try {
+        const batch = writeBatch(db);
+        const currentIds = new Set<string>();
+
+        cleanValue.forEach((f: FundRecord) => {
+          if (f && f.id) {
+            currentIds.add(f.id);
+            const fRef = doc(db, 'funds', f.id);
+            batch.set(fRef, f, { merge: true });
+          }
+        });
+
+        try {
+          const snap = await getDocs(FUNDS_COLLECTION);
+          snap.docs.forEach((docItem) => {
+            if (!currentIds.has(docItem.id)) {
+              batch.delete(docItem.ref);
+            }
+          });
+        } catch (snapErr) {}
+
+        await batch.commit();
+      } catch (err) {
+        console.warn('[Firestore] Batch funds sync error:', err);
       }
     }
+
+    return true;
   } catch (e) {
-    console.warn('[Firestore] Error in initFirestoreDefaults:', e);
+    console.error(`[Firestore] Failed to update key ${key}:`, e);
+    return false;
+  }
+}
+
+/**
+ * Fetch full Firestore app data asynchronously (getDocs / getDoc)
+ */
+export async function fetchFirestoreAppData(): Promise<AppFirestoreData | null> {
+  try {
+    let profile = DEFAULT_APP_DATA.profile;
+    let members: Member[] = [];
+    let donors: BloodDonor[] = [];
+    let notices: Notice[] = [];
+    let funds: FundRecord[] = [];
+    let manualTotalBalance: number | null = null;
+    let paymentConfig = DEFAULT_APP_DATA.paymentConfig;
+    let adminPin = '1234';
+    let updatedAt: any = null;
+
+    // 1. Fetch from individual Firestore collections (primary source of truth)
+    try {
+      const snap = await getDocs(MEMBERS_COLLECTION);
+      if (!snap.empty) {
+        members = snap.docs.map((d) => ({ ...d.data(), id: d.data().id || d.id } as Member));
+      }
+    } catch (e) {
+      console.warn('[Firestore] Error fetching members collection:', e);
+    }
+
+    try {
+      const snap = await getDocs(DONORS_COLLECTION);
+      if (!snap.empty) {
+        donors = snap.docs.map((d) => ({ ...d.data(), id: d.data().id || d.id } as BloodDonor));
+      }
+    } catch (e) {
+      console.warn('[Firestore] Error fetching donors collection:', e);
+    }
+
+    try {
+      const snap = await getDocs(NOTICES_COLLECTION);
+      if (!snap.empty) {
+        notices = snap.docs.map((d) => ({ ...d.data(), id: d.data().id || d.id } as Notice));
+      }
+    } catch (e) {
+      console.warn('[Firestore] Error fetching notices collection:', e);
+    }
+
+    try {
+      const snap = await getDocs(FUNDS_COLLECTION);
+      if (!snap.empty) {
+        funds = snap.docs.map((d) => ({ ...d.data(), id: d.data().id || d.id } as FundRecord));
+      }
+    } catch (e) {
+      console.warn('[Firestore] Error fetching funds collection:', e);
+    }
+
+    // 2. Fetch main organization document
+    try {
+      const docSnap = await getDoc(ORG_DOC_REF);
+      if (docSnap.exists()) {
+        const raw = docSnap.data() as Partial<AppFirestoreData>;
+        if (raw.profile) profile = { ...DEFAULT_APP_DATA.profile, ...raw.profile };
+        if (raw.adminPin) adminPin = raw.adminPin;
+        if (raw.paymentConfig) paymentConfig = { ...DEFAULT_APP_DATA.paymentConfig, ...raw.paymentConfig };
+        if (raw.manualTotalBalance !== undefined) manualTotalBalance = raw.manualTotalBalance;
+        if (members.length === 0 && Array.isArray(raw.members) && raw.members.length > 0) {
+          members = raw.members;
+        }
+        if (donors.length === 0 && Array.isArray(raw.donors) && raw.donors.length > 0) {
+          donors = raw.donors;
+        }
+        if (notices.length === 0 && Array.isArray(raw.notices) && raw.notices.length > 0) {
+          notices = raw.notices;
+        }
+        if (funds.length === 0 && Array.isArray(raw.funds) && raw.funds.length > 0) {
+          funds = raw.funds;
+        }
+        if (raw.updatedAt) updatedAt = raw.updatedAt;
+      }
+    } catch (docErr) {
+      console.warn('[Firestore] Error fetching org document:', docErr);
+    }
+
+    // If completely new project with 0 data, initialize defaults into Firestore
+    if (members.length === 0 && donors.length === 0 && notices.length === 0 && funds.length === 0) {
+      console.log('[Firestore] First-time initialization of Firestore collections...');
+      members = DEFAULT_APP_DATA.members;
+      donors = DEFAULT_APP_DATA.donors;
+      notices = DEFAULT_APP_DATA.notices;
+      funds = DEFAULT_APP_DATA.funds;
+
+      // Seed to Firestore in background
+      try {
+        const batch = writeBatch(db);
+        members.forEach((m) => batch.set(doc(db, 'members', m.id), sanitizeForFirestore(m)));
+        donors.forEach((d) => batch.set(doc(db, 'donors', d.id), sanitizeForFirestore(d)));
+        notices.forEach((n) => batch.set(doc(db, 'notices', n.id), sanitizeForFirestore(n)));
+        funds.forEach((f) => batch.set(doc(db, 'funds', f.id), sanitizeForFirestore(f)));
+        batch.set(ORG_DOC_REF, {
+          profile,
+          adminPin,
+          paymentConfig,
+          manualTotalBalance,
+          members: sanitizeForFirestore(members),
+          donors: sanitizeForFirestore(donors),
+          notices: sanitizeForFirestore(notices),
+          funds: sanitizeForFirestore(funds),
+          updatedAt: serverTimestamp()
+        });
+        await batch.commit();
+      } catch (seedErr) {
+        console.warn('[Firestore] Seeding error:', seedErr);
+      }
+    }
+
+    const result: AppFirestoreData = {
+      profile,
+      members,
+      donors,
+      notices,
+      funds,
+      manualTotalBalance,
+      paymentConfig,
+      adminPin,
+      updatedAt
+    };
+
+    activeCache = { ...result };
+    return result;
+  } catch (e) {
+    console.warn('[Firestore] Error in fetchFirestoreAppData:', e);
+    return null;
   }
 }
 
 /**
  * Real-time listener for Firestore data changes.
- * Listens to the primary document and individual collections, continuously updating the frontend.
+ * Listens to each collection and main doc with onSnapshot.
  */
 export function listenToFirestoreAppData(
   onData: (data: AppFirestoreData) => void,
@@ -127,59 +604,7 @@ export function listenToFirestoreAppData(
   };
 
   try {
-    // 1. Listen to Organization Document (organizations/sylhetmanobseba)
-    const unsubOrg = onSnapshot(
-      ORG_DOC_REF,
-      async (docSnap) => {
-        try {
-          if (docSnap.exists()) {
-            const raw = docSnap.data() as Partial<AppFirestoreData>;
-            
-            if (raw.profile && typeof raw.profile === 'object') {
-              activeCache.profile = { ...DEFAULT_APP_DATA.profile, ...raw.profile };
-            }
-            if (raw.adminPin) {
-              activeCache.adminPin = raw.adminPin;
-            }
-            if (raw.paymentConfig && typeof raw.paymentConfig === 'object') {
-              activeCache.paymentConfig = { ...DEFAULT_APP_DATA.paymentConfig, ...raw.paymentConfig };
-            }
-            if (raw.manualTotalBalance !== undefined) {
-              activeCache.manualTotalBalance = raw.manualTotalBalance;
-            }
-            if (Array.isArray(raw.members)) {
-              activeCache.members = raw.members;
-            }
-            if (Array.isArray(raw.donors)) {
-              activeCache.donors = raw.donors;
-            }
-            if (Array.isArray(raw.notices)) {
-              activeCache.notices = raw.notices;
-            }
-            if (Array.isArray(raw.funds)) {
-              activeCache.funds = raw.funds;
-            }
-            activeCache.updatedAt = raw.updatedAt;
-
-            broadcastCurrentCache();
-          } else {
-            // First time setup
-            initFirestoreDefaults().then(() => {
-              broadcastCurrentCache();
-            });
-          }
-        } catch (innerErr) {
-          console.warn('[Firestore] Error in Org Snapshot handler:', innerErr);
-        }
-      },
-      (err) => {
-        console.warn('[Firestore] Org Snapshot error:', err);
-        if (onError) onError(err);
-      }
-    );
-    unsubscribers.push(unsubOrg);
-
-    // 2. Listen to Members Collection in real-time
+    // 1. Members collection listener
     const unsubMembers = onSnapshot(
       MEMBERS_COLLECTION,
       (snapshot) => {
@@ -191,19 +616,18 @@ export function listenToFirestoreAppData(
               id: data.id || d.id
             } as Member;
           });
-          if (colMembers.length > 0) {
-            activeCache.members = colMembers;
-            broadcastCurrentCache();
-          }
+          activeCache.members = colMembers;
+          broadcastCurrentCache();
         }
       },
       (err) => {
-        console.warn('[Firestore] Members collection subscription warning:', err);
+        console.warn('[Firestore] Members subscription error:', err);
+        if (onError) onError(err);
       }
     );
     unsubscribers.push(unsubMembers);
 
-    // 3. Listen to Donors Collection in real-time
+    // 2. Donors collection listener
     const unsubDonors = onSnapshot(
       DONORS_COLLECTION,
       (snapshot) => {
@@ -215,19 +639,17 @@ export function listenToFirestoreAppData(
               id: data.id || d.id
             } as BloodDonor;
           });
-          if (colDonors.length > 0) {
-            activeCache.donors = colDonors;
-            broadcastCurrentCache();
-          }
+          activeCache.donors = colDonors;
+          broadcastCurrentCache();
         }
       },
       (err) => {
-        console.warn('[Firestore] Donors collection subscription warning:', err);
+        console.warn('[Firestore] Donors subscription error:', err);
       }
     );
     unsubscribers.push(unsubDonors);
 
-    // 4. Listen to Notices Collection in real-time
+    // 3. Notices collection listener
     const unsubNotices = onSnapshot(
       NOTICES_COLLECTION,
       (snapshot) => {
@@ -239,19 +661,17 @@ export function listenToFirestoreAppData(
               id: data.id || d.id
             } as Notice;
           });
-          if (colNotices.length > 0) {
-            activeCache.notices = colNotices;
-            broadcastCurrentCache();
-          }
+          activeCache.notices = colNotices;
+          broadcastCurrentCache();
         }
       },
       (err) => {
-        console.warn('[Firestore] Notices collection subscription warning:', err);
+        console.warn('[Firestore] Notices subscription error:', err);
       }
     );
     unsubscribers.push(unsubNotices);
 
-    // 5. Listen to Funds Collection in real-time
+    // 4. Funds collection listener
     const unsubFunds = onSnapshot(
       FUNDS_COLLECTION,
       (snapshot) => {
@@ -263,20 +683,57 @@ export function listenToFirestoreAppData(
               id: data.id || d.id
             } as FundRecord;
           });
-          if (colFunds.length > 0) {
-            activeCache.funds = colFunds;
-            broadcastCurrentCache();
-          }
+          activeCache.funds = colFunds;
+          broadcastCurrentCache();
         }
       },
       (err) => {
-        console.warn('[Firestore] Funds collection subscription warning:', err);
+        console.warn('[Firestore] Funds subscription error:', err);
       }
     );
     unsubscribers.push(unsubFunds);
 
+    // 5. Organization document listener (profile, PIN, settings, manualTotalBalance)
+    const unsubOrg = onSnapshot(
+      ORG_DOC_REF,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const raw = docSnap.data() as Partial<AppFirestoreData>;
+          if (raw.profile && typeof raw.profile === 'object') {
+            activeCache.profile = { ...DEFAULT_APP_DATA.profile, ...raw.profile };
+          }
+          if (raw.adminPin) {
+            activeCache.adminPin = raw.adminPin;
+          }
+          if (raw.paymentConfig && typeof raw.paymentConfig === 'object') {
+            activeCache.paymentConfig = { ...DEFAULT_APP_DATA.paymentConfig, ...raw.paymentConfig };
+          }
+          if (raw.manualTotalBalance !== undefined) {
+            activeCache.manualTotalBalance = raw.manualTotalBalance;
+          }
+          if (activeCache.members.length === 0 && Array.isArray(raw.members) && raw.members.length > 0) {
+            activeCache.members = raw.members;
+          }
+          if (activeCache.donors.length === 0 && Array.isArray(raw.donors) && raw.donors.length > 0) {
+            activeCache.donors = raw.donors;
+          }
+          if (activeCache.notices.length === 0 && Array.isArray(raw.notices) && raw.notices.length > 0) {
+            activeCache.notices = raw.notices;
+          }
+          if (activeCache.funds.length === 0 && Array.isArray(raw.funds) && raw.funds.length > 0) {
+            activeCache.funds = raw.funds;
+          }
+          broadcastCurrentCache();
+        }
+      },
+      (err) => {
+        console.warn('[Firestore] Org doc subscription error:', err);
+      }
+    );
+    unsubscribers.push(unsubOrg);
+
   } catch (e) {
-    console.warn('[Firestore] Failed to attach realtime listeners:', e);
+    console.warn('[Firestore] Failed to attach listeners:', e);
   }
 
   return () => {
@@ -286,287 +743,6 @@ export function listenToFirestoreAppData(
       } catch (e) {}
     });
   };
-}
-
-/**
- * Fetch full Firestore app data asynchronously (getDoc / getDocs)
- */
-export async function fetchFirestoreAppData(): Promise<AppFirestoreData | null> {
-  try {
-    let profile = DEFAULT_APP_DATA.profile;
-    let members: Member[] = [];
-    let donors: BloodDonor[] = [];
-    let notices: Notice[] = [];
-    let funds: FundRecord[] = [];
-    let manualTotalBalance: number | null = null;
-    let paymentConfig = DEFAULT_APP_DATA.paymentConfig;
-    let adminPin = '1234';
-    let updatedAt: any = null;
-
-    // 1. Fetch main document
-    try {
-      const docSnap = await getDoc(ORG_DOC_REF);
-      if (docSnap.exists()) {
-        const raw = docSnap.data() as Partial<AppFirestoreData>;
-        if (raw.profile) profile = { ...DEFAULT_APP_DATA.profile, ...raw.profile };
-        if (raw.adminPin) adminPin = raw.adminPin;
-        if (raw.paymentConfig) paymentConfig = { ...DEFAULT_APP_DATA.paymentConfig, ...raw.paymentConfig };
-        if (raw.manualTotalBalance !== undefined) manualTotalBalance = raw.manualTotalBalance;
-        if (Array.isArray(raw.members)) members = raw.members;
-        if (Array.isArray(raw.donors)) donors = raw.donors;
-        if (Array.isArray(raw.notices)) notices = raw.notices;
-        if (Array.isArray(raw.funds)) funds = raw.funds;
-        if (raw.updatedAt) updatedAt = raw.updatedAt;
-      }
-    } catch (docErr) {
-      console.warn('[Firestore] Error fetching org document:', docErr);
-    }
-
-    // 2. Fetch from individual collections if arrays were empty
-    if (members.length === 0) {
-      try {
-        const snap = await getDocs(MEMBERS_COLLECTION);
-        if (!snap.empty) {
-          members = snap.docs.map((d) => ({ ...d.data(), id: d.data().id || d.id } as Member));
-        }
-      } catch (e) {}
-    }
-
-    if (donors.length === 0) {
-      try {
-        const snap = await getDocs(DONORS_COLLECTION);
-        if (!snap.empty) {
-          donors = snap.docs.map((d) => ({ ...d.data(), id: d.data().id || d.id } as BloodDonor));
-        }
-      } catch (e) {}
-    }
-
-    if (notices.length === 0) {
-      try {
-        const snap = await getDocs(NOTICES_COLLECTION);
-        if (!snap.empty) {
-          notices = snap.docs.map((d) => ({ ...d.data(), id: d.data().id || d.id } as Notice));
-        }
-      } catch (e) {}
-    }
-
-    if (funds.length === 0) {
-      try {
-        const snap = await getDocs(FUNDS_COLLECTION);
-        if (!snap.empty) {
-          funds = snap.docs.map((d) => ({ ...d.data(), id: d.data().id || d.id } as FundRecord));
-        }
-      } catch (e) {}
-    }
-
-    const result: AppFirestoreData = {
-      profile,
-      members: members.length > 0 ? members : DEFAULT_APP_DATA.members,
-      donors: donors.length > 0 ? donors : DEFAULT_APP_DATA.donors,
-      notices: notices.length > 0 ? notices : DEFAULT_APP_DATA.notices,
-      funds: funds.length > 0 ? funds : DEFAULT_APP_DATA.funds,
-      manualTotalBalance,
-      paymentConfig,
-      adminPin,
-      updatedAt
-    };
-
-    activeCache = { ...result };
-    return result;
-  } catch (e) {
-    console.warn('[Firestore] Error in fetchFirestoreAppData:', e);
-    return null;
-  }
-}
-
-/**
- * Update a specific key in Firestore.
- * Synchronizes to both the central organization document AND the specific collection documents.
- */
-export async function updateFirestoreKey(key: keyof AppFirestoreData, value: any): Promise<boolean> {
-  try {
-    // 1. Update in active cache immediately
-    (activeCache as any)[key] = value;
-
-    // 2. Update in main document
-    await setDoc(
-      ORG_DOC_REF,
-      {
-        [key]: value,
-        updatedAt: serverTimestamp()
-      },
-      { merge: true }
-    );
-
-    // 3. Dual-sync to individual collection documents
-    if (key === 'members' && Array.isArray(value)) {
-      try {
-        const batch = writeBatch(db);
-        const currentIds = new Set<string>();
-
-        value.forEach((member: Member) => {
-          if (member && member.id) {
-            currentIds.add(member.id);
-            const mRef = doc(db, 'members', member.id);
-            batch.set(mRef, member, { merge: true });
-          }
-        });
-
-        // Cleanup removed members from members collection
-        try {
-          const snap = await getDocs(MEMBERS_COLLECTION);
-          snap.docs.forEach((docItem) => {
-            if (!currentIds.has(docItem.id)) {
-              batch.delete(docItem.ref);
-            }
-          });
-        } catch (snapErr) {}
-
-        await batch.commit();
-      } catch (mErr) {
-        console.warn('[Firestore] Error syncing members collection:', mErr);
-      }
-    } else if (key === 'donors' && Array.isArray(value)) {
-      try {
-        const batch = writeBatch(db);
-        const currentIds = new Set<string>();
-
-        value.forEach((donor: BloodDonor) => {
-          if (donor && donor.id) {
-            currentIds.add(donor.id);
-            const dRef = doc(db, 'donors', donor.id);
-            batch.set(dRef, donor, { merge: true });
-          }
-        });
-
-        try {
-          const snap = await getDocs(DONORS_COLLECTION);
-          snap.docs.forEach((docItem) => {
-            if (!currentIds.has(docItem.id)) {
-              batch.delete(docItem.ref);
-            }
-          });
-        } catch (snapErr) {}
-
-        await batch.commit();
-      } catch (dErr) {
-        console.warn('[Firestore] Error syncing donors collection:', dErr);
-      }
-    } else if (key === 'notices' && Array.isArray(value)) {
-      try {
-        const batch = writeBatch(db);
-        const currentIds = new Set<string>();
-
-        value.forEach((notice: Notice) => {
-          if (notice && notice.id) {
-            currentIds.add(notice.id);
-            const nRef = doc(db, 'notices', notice.id);
-            batch.set(nRef, notice, { merge: true });
-          }
-        });
-
-        try {
-          const snap = await getDocs(NOTICES_COLLECTION);
-          snap.docs.forEach((docItem) => {
-            if (!currentIds.has(docItem.id)) {
-              batch.delete(docItem.ref);
-            }
-          });
-        } catch (snapErr) {}
-
-        await batch.commit();
-      } catch (nErr) {
-        console.warn('[Firestore] Error syncing notices collection:', nErr);
-      }
-    } else if (key === 'funds' && Array.isArray(value)) {
-      try {
-        const batch = writeBatch(db);
-        const currentIds = new Set<string>();
-
-        value.forEach((fund: FundRecord) => {
-          if (fund && fund.id) {
-            currentIds.add(fund.id);
-            const fRef = doc(db, 'funds', fund.id);
-            batch.set(fRef, fund, { merge: true });
-          }
-        });
-
-        try {
-          const snap = await getDocs(FUNDS_COLLECTION);
-          snap.docs.forEach((docItem) => {
-            if (!currentIds.has(docItem.id)) {
-              batch.delete(docItem.ref);
-            }
-          });
-        } catch (snapErr) {}
-
-        await batch.commit();
-      } catch (fErr) {
-        console.warn('[Firestore] Error syncing funds collection:', fErr);
-      }
-    }
-
-    return true;
-  } catch (e) {
-    console.warn(`[Firestore] Failed to update key ${key}:`, e);
-    return false;
-  }
-}
-
-/**
- * Delete a specific member from Firestore
- */
-export async function deleteFirestoreMember(memberId: string): Promise<boolean> {
-  try {
-    const mRef = doc(db, 'members', memberId);
-    await deleteDoc(mRef);
-    return true;
-  } catch (e) {
-    console.warn(`[Firestore] Failed to delete member ${memberId}:`, e);
-    return false;
-  }
-}
-
-/**
- * Delete a specific donor from Firestore
- */
-export async function deleteFirestoreDonor(donorId: string): Promise<boolean> {
-  try {
-    const dRef = doc(db, 'donors', donorId);
-    await deleteDoc(dRef);
-    return true;
-  } catch (e) {
-    console.warn(`[Firestore] Failed to delete donor ${donorId}:`, e);
-    return false;
-  }
-}
-
-/**
- * Delete a specific notice from Firestore
- */
-export async function deleteFirestoreNotice(noticeId: string): Promise<boolean> {
-  try {
-    const nRef = doc(db, 'notices', noticeId);
-    await deleteDoc(nRef);
-    return true;
-  } catch (e) {
-    console.warn(`[Firestore] Failed to delete notice ${noticeId}:`, e);
-    return false;
-  }
-}
-
-/**
- * Delete a specific fund from Firestore
- */
-export async function deleteFirestoreFund(fundId: string): Promise<boolean> {
-  try {
-    const fRef = doc(db, 'funds', fundId);
-    await deleteDoc(fRef);
-    return true;
-  } catch (e) {
-    console.warn(`[Firestore] Failed to delete fund ${fundId}:`, e);
-    return false;
-  }
 }
 
 /**
@@ -581,16 +757,16 @@ export async function resetFirestoreData(): Promise<boolean> {
 
     const batch = writeBatch(db);
     DEFAULT_APP_DATA.members.forEach((m) => {
-      batch.set(doc(db, 'members', m.id), m);
+      batch.set(doc(db, 'members', m.id), sanitizeForFirestore(m));
     });
     DEFAULT_APP_DATA.donors.forEach((d) => {
-      batch.set(doc(db, 'donors', d.id), d);
+      batch.set(doc(db, 'donors', d.id), sanitizeForFirestore(d));
     });
     DEFAULT_APP_DATA.notices.forEach((n) => {
-      batch.set(doc(db, 'notices', n.id), n);
+      batch.set(doc(db, 'notices', n.id), sanitizeForFirestore(n));
     });
     DEFAULT_APP_DATA.funds.forEach((f) => {
-      batch.set(doc(db, 'funds', f.id), f);
+      batch.set(doc(db, 'funds', f.id), sanitizeForFirestore(f));
     });
     await batch.commit();
 
@@ -615,7 +791,6 @@ export async function clearFirestoreData(): Promise<boolean> {
       updatedAt: serverTimestamp()
     });
 
-    // Also delete all docs from collections
     const collectionsToClear = [MEMBERS_COLLECTION, DONORS_COLLECTION, NOTICES_COLLECTION, FUNDS_COLLECTION];
     for (const col of collectionsToClear) {
       try {
@@ -632,3 +807,25 @@ export async function clearFirestoreData(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Save Organization Profile to Firestore
+ */
+export async function saveOrgProfileToFirestore(profile: OrganizationProfile): Promise<boolean> {
+  return updateFirestoreKey('profile', profile);
+}
+
+/**
+ * Save Payment Gateway Config to Firestore
+ */
+export async function savePaymentConfigToFirestore(paymentConfig: PaymentGatewayConfig): Promise<boolean> {
+  return updateFirestoreKey('paymentConfig', paymentConfig);
+}
+
+/**
+ * Save Manual Total Balance to Firestore
+ */
+export async function saveManualTotalBalanceToFirestore(manualTotalBalance: number | null): Promise<boolean> {
+  return updateFirestoreKey('manualTotalBalance', manualTotalBalance);
+}
+

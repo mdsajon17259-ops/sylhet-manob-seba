@@ -140,7 +140,7 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
           designation: designation.trim(),
           phone: phone.trim(),
           area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
-          photoUrl: photoUrl.trim() || undefined,
+          photoUrl: photoUrl.trim() || '',
         });
       }
     } else {
@@ -149,7 +149,7 @@ export const MemberListScreen: React.FC<MemberListScreenProps> = ({
         designation: designation.trim(),
         phone: phone.trim(),
         area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
-        photoUrl: photoUrl.trim() || undefined,
+        photoUrl: photoUrl.trim() || '',
         joinDate: new Date().toISOString().split('T')[0],
         status: 'সক্রিয়'
       });

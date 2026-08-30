@@ -30,7 +30,21 @@ import {
   clearAllData 
 } from './utils/storage';
 import { fetchServerDatabase } from './utils/serverApi';
-import { listenToFirestoreAppData } from './utils/firestoreService';
+import {
+  listenToFirestoreAppData,
+  fetchFirestoreAppData,
+  saveSingleMemberToFirestore,
+  deleteMemberFromFirestore,
+  saveSingleDonorToFirestore,
+  deleteDonorFromFirestore,
+  saveSingleNoticeToFirestore,
+  deleteNoticeFromFirestore,
+  saveSingleFundToFirestore,
+  deleteFundFromFirestore,
+  saveOrgProfileToFirestore,
+  savePaymentConfigToFirestore,
+  saveManualTotalBalanceToFirestore
+} from './utils/firestoreService';
 import { isDonorEligible } from './utils/helpers';
 import { Header } from './components/Header';
 import { HomeScreen } from './components/HomeScreen';
@@ -198,15 +212,17 @@ export default function App() {
   const handleUpdateProfile = (newProfile: OrganizationProfile) => {
     setProfile(newProfile);
     saveOrgProfile(newProfile);
+    saveOrgProfileToFirestore(newProfile).catch(() => {});
   };
 
   const handleUpdatePaymentConfig = (newConfig: PaymentGatewayConfig) => {
     setPaymentConfig(newConfig);
     savePaymentSettings(newConfig);
+    savePaymentConfigToFirestore(newConfig).catch(() => {});
   };
 
   // Member Handlers
-  const handleAddMember = (newMember: Omit<Member, 'id'>) => {
+  const handleAddMember = async (newMember: Omit<Member, 'id'>) => {
     const member: Member = {
       ...newMember,
       id: `m-${Date.now()}`
@@ -216,28 +232,43 @@ export default function App() {
       saveMembers(updated);
       return updated;
     });
+    try {
+      await saveSingleMemberToFirestore(member);
+    } catch (e) {
+      console.warn('[Firestore] Error saving member:', e);
+    }
   };
 
-  const handleEditMember = (updatedMember: Member) => {
+  const handleEditMember = async (updatedMember: Member) => {
     setMembers(prev => {
       const updated = prev.map(m => m.id === updatedMember.id ? updatedMember : m);
       saveMembers(updated);
       return updated;
     });
+    try {
+      await saveSingleMemberToFirestore(updatedMember);
+    } catch (e) {
+      console.warn('[Firestore] Error updating member:', e);
+    }
   };
 
-  const handleDeleteMember = (id: string, name: string) => {
+  const handleDeleteMember = async (id: string, name: string) => {
     if (confirm(`আপনি কি সদস্য "${name}" কে মুছে ফেলতে চান?`)) {
       setMembers(prev => {
         const updated = prev.filter(m => m.id !== id);
         saveMembers(updated);
         return updated;
       });
+      try {
+        await deleteMemberFromFirestore(id);
+      } catch (e) {
+        console.warn('[Firestore] Error deleting member:', e);
+      }
     }
   };
 
   // Donor Handlers
-  const handleAddDonor = (newDonor: Omit<BloodDonor, 'id'>) => {
+  const handleAddDonor = async (newDonor: Omit<BloodDonor, 'id'>) => {
     const donor: BloodDonor = {
       ...newDonor,
       id: `d-${Date.now()}`
@@ -247,28 +278,43 @@ export default function App() {
       saveDonors(updated);
       return updated;
     });
+    try {
+      await saveSingleDonorToFirestore(donor);
+    } catch (e) {
+      console.warn('[Firestore] Error saving donor:', e);
+    }
   };
 
-  const handleEditDonor = (updatedDonor: BloodDonor) => {
+  const handleEditDonor = async (updatedDonor: BloodDonor) => {
     setDonors(prev => {
       const updated = prev.map(d => d.id === updatedDonor.id ? updatedDonor : d);
       saveDonors(updated);
       return updated;
     });
+    try {
+      await saveSingleDonorToFirestore(updatedDonor);
+    } catch (e) {
+      console.warn('[Firestore] Error updating donor:', e);
+    }
   };
 
-  const handleDeleteDonor = (id: string, name: string) => {
+  const handleDeleteDonor = async (id: string, name: string) => {
     if (confirm(`আপনি কি রক্তদাতা "${name}" এর তথ্য মুছে ফেলতে চান?`)) {
       setDonors(prev => {
         const updated = prev.filter(d => d.id !== id);
         saveDonors(updated);
         return updated;
       });
+      try {
+        await deleteDonorFromFirestore(id);
+      } catch (e) {
+        console.warn('[Firestore] Error deleting donor:', e);
+      }
     }
   };
 
   // Notice Handlers
-  const handleAddNotice = (newNotice: Omit<Notice, 'id'>) => {
+  const handleAddNotice = async (newNotice: Omit<Notice, 'id'>) => {
     const notice: Notice = {
       ...newNotice,
       id: `n-${Date.now()}`
@@ -278,28 +324,43 @@ export default function App() {
       saveNotices(updated);
       return updated;
     });
+    try {
+      await saveSingleNoticeToFirestore(notice);
+    } catch (e) {
+      console.warn('[Firestore] Error saving notice:', e);
+    }
   };
 
-  const handleEditNotice = (updatedNotice: Notice) => {
+  const handleEditNotice = async (updatedNotice: Notice) => {
     setNotices(prev => {
       const updated = prev.map(n => n.id === updatedNotice.id ? updatedNotice : n);
       saveNotices(updated);
       return updated;
     });
+    try {
+      await saveSingleNoticeToFirestore(updatedNotice);
+    } catch (e) {
+      console.warn('[Firestore] Error updating notice:', e);
+    }
   };
 
-  const handleDeleteNotice = (id: string) => {
+  const handleDeleteNotice = async (id: string) => {
     if (confirm('আপনি কি এই নোটিশটি মুছে ফেলতে চান?')) {
       setNotices(prev => {
         const updated = prev.filter(n => n.id !== id);
         saveNotices(updated);
         return updated;
       });
+      try {
+        await deleteNoticeFromFirestore(id);
+      } catch (e) {
+        console.warn('[Firestore] Error deleting notice:', e);
+      }
     }
   };
 
   // Fund Handlers
-  const handleAddFund = (newFund: Omit<FundRecord, 'id'>) => {
+  const handleAddFund = async (newFund: Omit<FundRecord, 'id'>) => {
     const fund: FundRecord = {
       ...newFund,
       id: `f-${Date.now()}`
@@ -309,47 +370,72 @@ export default function App() {
       saveFunds(updated);
       return updated;
     });
+    try {
+      await saveSingleFundToFirestore(fund);
+    } catch (e) {
+      console.warn('[Firestore] Error saving fund:', e);
+    }
   };
 
-  const handleEditFund = (updatedFund: FundRecord) => {
+  const handleEditFund = async (updatedFund: FundRecord) => {
     setFunds(prev => {
       const updated = prev.map(f => f.id === updatedFund.id ? updatedFund : f);
       saveFunds(updated);
       return updated;
     });
+    try {
+      await saveSingleFundToFirestore(updatedFund);
+    } catch (e) {
+      console.warn('[Firestore] Error updating fund:', e);
+    }
   };
 
-  const handleDeleteFund = (id: string) => {
+  const handleDeleteFund = async (id: string) => {
     if (confirm('আপনি কি এই ফান্ড এন্ট্রিটি মুছে ফেলতে চান?')) {
       setFunds(prev => {
         const updated = prev.filter(f => f.id !== id);
         saveFunds(updated);
         return updated;
       });
+      try {
+        await deleteFundFromFirestore(id);
+      } catch (e) {
+        console.warn('[Firestore] Error deleting fund:', e);
+      }
     }
   };
 
-  const handleToggleFundStatus = (id: string, newStatus: PaymentStatus) => {
+  const handleToggleFundStatus = async (id: string, newStatus: PaymentStatus) => {
+    let updatedRecord: FundRecord | null = null;
     setFunds(prev => {
       const updated = prev.map(f => {
         if (f.id === id) {
-          return {
+          updatedRecord = {
             ...f,
             status: newStatus,
             approvedAt: newStatus === 'Paid' ? new Date().toISOString() : f.approvedAt,
             date: f.date || new Date().toISOString().split('T')[0]
           };
+          return updatedRecord;
         }
         return f;
       });
       saveFunds(updated);
       return updated;
     });
+    if (updatedRecord) {
+      try {
+        await saveSingleFundToFirestore(updatedRecord);
+      } catch (e) {
+        console.warn('[Firestore] Error updating fund status:', e);
+      }
+    }
   };
 
   const handleUpdateManualTotalBalance = (val: number | null) => {
     setManualTotalBalance(val);
     saveManualTotalBalance(val);
+    saveManualTotalBalanceToFirestore(val).catch(() => {});
   };
 
   const handleResetData = () => {

@@ -292,56 +292,41 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
     }
 
     if (editingMember) {
+      const cleanMember: Member = {
+        ...editingMember,
+        name: name.trim(),
+        designation: designation.trim(),
+        phone: phone.trim(),
+        area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
+        photoUrl: photoUrl?.trim() || '',
+        joinDate: joinDate || editingMember.joinDate,
+        email: email.trim(),
+        status
+      };
       if (onEditMember) {
-        onEditMember({
-          ...editingMember,
-          name: name.trim(),
-          designation: designation.trim(),
-          phone: phone.trim(),
-          area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
-          photoUrl: photoUrl?.trim() || undefined,
-          joinDate: joinDate || editingMember.joinDate,
-          email: email.trim(),
-          status
-        });
+        onEditMember(cleanMember);
       } else if (setMembers) {
-        setMembers(prev => prev.map(m => m.id === editingMember.id ? {
-          ...m,
-          name: name.trim(),
-          designation: designation.trim(),
-          phone: phone.trim(),
-          area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
-          photoUrl: photoUrl?.trim() || undefined,
-          joinDate: joinDate || m.joinDate,
-          email: email.trim(),
-          status
-        } : m));
+        setMembers(prev => prev.map(m => m.id === editingMember.id ? cleanMember : m));
       }
       setEditingMember(null);
       notifySuccess('সদস্যের তথ্য সফলভাবে আপডেট হয়েছে');
     } else {
+      const newMemberData: Omit<Member, 'id'> = {
+        name: name.trim(),
+        designation: designation.trim() || 'সদস্য',
+        phone: phone.trim(),
+        area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
+        photoUrl: photoUrl?.trim() || '',
+        joinDate: joinDate || new Date().toISOString().split('T')[0],
+        email: email.trim(),
+        status: status || 'সক্রিয়'
+      };
       if (onAddMember) {
-        onAddMember({
-          name: name.trim(),
-          designation: designation.trim() || 'সদস্য',
-          phone: phone.trim(),
-          area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
-          photoUrl: photoUrl?.trim() || undefined,
-          joinDate: joinDate || new Date().toISOString().split('T')[0],
-          email: email.trim(),
-          status: status || 'সক্রিয়'
-        });
+        onAddMember(newMemberData);
       } else if (setMembers) {
         const newMember: Member = {
-          id: `m-${Date.now()}`,
-          name: name.trim(),
-          designation: designation.trim() || 'সদস্য',
-          phone: phone.trim(),
-          area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
-          photoUrl: photoUrl?.trim() || undefined,
-          joinDate: joinDate || new Date().toISOString().split('T')[0],
-          email: email.trim(),
-          status: status || 'সক্রিয়'
+          ...newMemberData,
+          id: `m-${Date.now()}`
         };
         setMembers(prev => [newMember, ...prev]);
       }
