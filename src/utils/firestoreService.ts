@@ -669,10 +669,7 @@ export function listenToFirestoreAppData(
               id: data.id || d.id
             } as Member;
           });
-          const memberMap = new Map<string, Member>();
-          activeCache.members.forEach((m) => { if (m && m.id) memberMap.set(m.id, m); });
-          colMembers.forEach((m) => { if (m && m.id) memberMap.set(m.id, m); });
-          activeCache.members = Array.from(memberMap.values());
+          activeCache.members = colMembers;
           broadcastCurrentCache();
         }
       },
@@ -695,10 +692,7 @@ export function listenToFirestoreAppData(
               id: data.id || d.id
             } as BloodDonor;
           });
-          const donorMap = new Map<string, BloodDonor>();
-          activeCache.donors.forEach((d) => { if (d && d.id) donorMap.set(d.id, d); });
-          colDonors.forEach((d) => { if (d && d.id) donorMap.set(d.id, d); });
-          activeCache.donors = Array.from(donorMap.values());
+          activeCache.donors = colDonors;
           broadcastCurrentCache();
         }
       },
@@ -720,10 +714,7 @@ export function listenToFirestoreAppData(
               id: data.id || d.id
             } as Notice;
           });
-          const noticeMap = new Map<string, Notice>();
-          activeCache.notices.forEach((n) => { if (n && n.id) noticeMap.set(n.id, n); });
-          colNotices.forEach((n) => { if (n && n.id) noticeMap.set(n.id, n); });
-          activeCache.notices = Array.from(noticeMap.values());
+          activeCache.notices = colNotices;
           broadcastCurrentCache();
         }
       },
@@ -745,10 +736,7 @@ export function listenToFirestoreAppData(
               id: data.id || d.id
             } as FundRecord;
           });
-          const fundMap = new Map<string, FundRecord>();
-          activeCache.funds.forEach((f) => { if (f && f.id) fundMap.set(f.id, f); });
-          colFunds.forEach((f) => { if (f && f.id) fundMap.set(f.id, f); });
-          activeCache.funds = Array.from(fundMap.values());
+          activeCache.funds = colFunds;
           broadcastCurrentCache();
         }
       },

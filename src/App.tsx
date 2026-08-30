@@ -80,9 +80,26 @@ export default function App() {
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
   const [isSheetGuideOpen, setIsSheetGuideOpen] = useState(false);
 
-  // Real-time synchronization across Admin Panel, Member views, and other browser tabs
+  // Real-time synchronization across Firestore, Admin Panel, Member views, and other browser tabs
   useEffect(() => {
     let isMounted = true;
+
+    // Master data applicator: Firestore is the Single Source of Truth
+    const applyFirestoreData = (firestoreData: any) => {
+      if (!isMounted || !firestoreData) return;
+
+      // 1. Exclusively populate React states from Firebase Firestore
+      if (firestoreData.profile) setProfile(firestoreData.profile);
+      if (Array.isArray(firestoreData.members)) setMembers(firestoreData.members);
+      if (Array.isArray(firestoreData.donors)) setDonors(firestoreData.donors);
+      if (Array.isArray(firestoreData.notices)) setNotices(firestoreData.notices);
+      if (Array.isArray(firestoreData.funds)) setFunds(firestoreData.funds);
+      if (firestoreData.manualTotalBalance !== undefined) setManualTotalBalance(firestoreData.manualTotalBalance);
+      if (firestoreData.paymentConfig) setPaymentConfig(firestoreData.paymentConfig);
+
+      // 2. Update local storage purely as a cache AFTER fresh data is received from Firestore
+      populateLocalStorageFromServer(firestoreData, true);
+    };
 
     const syncAllFromStorage = () => {
       if (!isMounted) return;
@@ -95,104 +112,28 @@ export default function App() {
       setPaymentConfig(loadPaymentSettings());
     };
 
-    // Load and sync from central server database (auto-fetches latest admin updates instantly)
-    const syncWithServer = async () => {
-      try {
-        const serverData = await fetchServerDatabase();
-        if (serverData && isMounted) {
-          populateLocalStorageFromServer(serverData, false);
-          if (serverData.profile) setProfile(serverData.profile);
-          if (Array.isArray(serverData.members) && serverData.members.length > 0) {
-            setMembers(prev => {
-              const map = new Map<string, Member>();
-              prev.forEach(m => { if (m && m.id) map.set(m.id, m); });
-              serverData.members!.forEach(m => { if (m && m.id) map.set(m.id, m); });
-              return Array.from(map.values());
-            });
-          }
-          if (Array.isArray(serverData.donors) && serverData.donors.length > 0) {
-            setDonors(prev => {
-              const map = new Map<string, BloodDonor>();
-              prev.forEach(d => { if (d && d.id) map.set(d.id, d); });
-              serverData.donors!.forEach(d => { if (d && d.id) map.set(d.id, d); });
-              return Array.from(map.values());
-            });
-          }
-          if (Array.isArray(serverData.notices) && serverData.notices.length > 0) {
-            setNotices(prev => {
-              const map = new Map<string, Notice>();
-              prev.forEach(n => { if (n && n.id) map.set(n.id, n); });
-              serverData.notices!.forEach(n => { if (n && n.id) map.set(n.id, n); });
-              return Array.from(map.values());
-            });
-          }
-          if (Array.isArray(serverData.funds) && serverData.funds.length > 0) {
-            setFunds(prev => {
-              const map = new Map<string, FundRecord>();
-              prev.forEach(f => { if (f && f.id) map.set(f.id, f); });
-              serverData.funds!.forEach(f => { if (f && f.id) map.set(f.id, f); });
-              return Array.from(map.values());
-            });
-          }
-          if (serverData.manualTotalBalance !== undefined) setManualTotalBalance(serverData.manualTotalBalance);
-          if (serverData.paymentConfig) setPaymentConfig(serverData.paymentConfig);
-        }
-      } catch (e) {
-        console.warn('Background server sync error:', e);
-      }
-    };
-
     // 1. Instant Firestore Real-time Listener (Sub-second sync across all members & devices)
     const unsubscribeFirestore = listenToFirestoreAppData((firestoreData) => {
-      if (!isMounted || !firestoreData) return;
-      populateLocalStorageFromServer(firestoreData, false);
-      if (firestoreData.profile) setProfile(firestoreData.profile);
-      if (Array.isArray(firestoreData.members) && firestoreData.members.length > 0) {
-        setMembers(prev => {
-          const map = new Map<string, Member>();
-          prev.forEach(m => { if (m && m.id) map.set(m.id, m); });
-          firestoreData.members.forEach(m => { if (m && m.id) map.set(m.id, m); });
-          return Array.from(map.values());
-        });
-      }
-      if (Array.isArray(firestoreData.donors) && firestoreData.donors.length > 0) {
-        setDonors(prev => {
-          const map = new Map<string, BloodDonor>();
-          prev.forEach(d => { if (d && d.id) map.set(d.id, d); });
-          firestoreData.donors.forEach(d => { if (d && d.id) map.set(d.id, d); });
-          return Array.from(map.values());
-        });
-      }
-      if (Array.isArray(firestoreData.notices) && firestoreData.notices.length > 0) {
-        setNotices(prev => {
-          const map = new Map<string, Notice>();
-          prev.forEach(n => { if (n && n.id) map.set(n.id, n); });
-          firestoreData.notices.forEach(n => { if (n && n.id) map.set(n.id, n); });
-          return Array.from(map.values());
-        });
-      }
-      if (Array.isArray(firestoreData.funds) && firestoreData.funds.length > 0) {
-        setFunds(prev => {
-          const map = new Map<string, FundRecord>();
-          prev.forEach(f => { if (f && f.id) map.set(f.id, f); });
-          firestoreData.funds.forEach(f => { if (f && f.id) map.set(f.id, f); });
-          return Array.from(map.values());
-        });
-      }
-      if (firestoreData.manualTotalBalance !== undefined) setManualTotalBalance(firestoreData.manualTotalBalance);
-      if (firestoreData.paymentConfig) setPaymentConfig(firestoreData.paymentConfig);
+      applyFirestoreData(firestoreData);
     });
 
-    // 2. Initial instant sync on app launch / page open
-    syncWithServer();
-
-    // 3. Continuous Background Heartbeat Auto-Sync (Every 5 seconds)
-    // Ensures non-technical members always see live updates without ever having to refresh
-    const autoSyncInterval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        syncWithServer();
+    // 2. Direct Firestore Fetch on App Startup (Ensures instant restoration even if cache was cleared)
+    fetchFirestoreAppData().then((firestoreData) => {
+      if (firestoreData) {
+        applyFirestoreData(firestoreData);
       }
-    }, 5000);
+    }).catch((err) => {
+      console.warn('[Firestore] Startup direct fetch error:', err);
+    });
+
+    // 3. Periodic cloud poll fallback (Every 10 seconds)
+    const cloudPollInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchFirestoreAppData().then((data) => {
+          if (data) applyFirestoreData(data);
+        }).catch(() => {});
+      }
+    }, 10000);
 
     // 4. Cross-tab storage event
     window.addEventListener('storage', syncAllFromStorage);
@@ -200,16 +141,20 @@ export default function App() {
     // 5. Tab visibility / Focus event & Network reconnect
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        syncAllFromStorage();
-        syncWithServer();
+        fetchFirestoreAppData().then((data) => {
+          if (data) applyFirestoreData(data);
+        }).catch(() => {});
       }
     };
     const handleFocus = () => {
-      syncAllFromStorage();
-      syncWithServer();
+      fetchFirestoreAppData().then((data) => {
+        if (data) applyFirestoreData(data);
+      }).catch(() => {});
     };
     const handleOnline = () => {
-      syncWithServer();
+      fetchFirestoreAppData().then((data) => {
+        if (data) applyFirestoreData(data);
+      }).catch(() => {});
     };
 
     window.addEventListener('focus', handleFocus);
@@ -223,8 +168,9 @@ export default function App() {
         bc = new BroadcastChannel('pms_realtime_sync_channel');
         bc.onmessage = (event) => {
           if (event.data && event.data.type === 'PMS_DATA_SYNC') {
-            syncAllFromStorage();
-            syncWithServer();
+            fetchFirestoreAppData().then((data) => {
+              if (data) applyFirestoreData(data);
+            }).catch(() => {});
           }
         };
       } catch (e) {
@@ -235,7 +181,7 @@ export default function App() {
     return () => {
       isMounted = false;
       unsubscribeFirestore();
-      clearInterval(autoSyncInterval);
+      clearInterval(cloudPollInterval);
       window.removeEventListener('storage', syncAllFromStorage);
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('online', handleOnline);
@@ -246,46 +192,18 @@ export default function App() {
     };
   }, []);
 
-  // Quick background sync on navigation tab changes to guarantee fresh view
+  // Quick background sync on navigation tab changes directly from Firestore
   useEffect(() => {
-    fetchServerDatabase().then((serverData) => {
-      if (serverData) {
-        populateLocalStorageFromServer(serverData, false);
-        if (serverData.profile) setProfile(serverData.profile);
-        if (Array.isArray(serverData.members) && serverData.members.length > 0) {
-          setMembers(prev => {
-            const map = new Map<string, Member>();
-            prev.forEach(m => { if (m && m.id) map.set(m.id, m); });
-            serverData.members!.forEach(m => { if (m && m.id) map.set(m.id, m); });
-            return Array.from(map.values());
-          });
-        }
-        if (Array.isArray(serverData.donors) && serverData.donors.length > 0) {
-          setDonors(prev => {
-            const map = new Map<string, BloodDonor>();
-            prev.forEach(d => { if (d && d.id) map.set(d.id, d); });
-            serverData.donors!.forEach(d => { if (d && d.id) map.set(d.id, d); });
-            return Array.from(map.values());
-          });
-        }
-        if (Array.isArray(serverData.notices) && serverData.notices.length > 0) {
-          setNotices(prev => {
-            const map = new Map<string, Notice>();
-            prev.forEach(n => { if (n && n.id) map.set(n.id, n); });
-            serverData.notices!.forEach(n => { if (n && n.id) map.set(n.id, n); });
-            return Array.from(map.values());
-          });
-        }
-        if (Array.isArray(serverData.funds) && serverData.funds.length > 0) {
-          setFunds(prev => {
-            const map = new Map<string, FundRecord>();
-            prev.forEach(f => { if (f && f.id) map.set(f.id, f); });
-            serverData.funds!.forEach(f => { if (f && f.id) map.set(f.id, f); });
-            return Array.from(map.values());
-          });
-        }
-        if (serverData.manualTotalBalance !== undefined) setManualTotalBalance(serverData.manualTotalBalance);
-        if (serverData.paymentConfig) setPaymentConfig(serverData.paymentConfig);
+    fetchFirestoreAppData().then((firestoreData) => {
+      if (firestoreData) {
+        if (firestoreData.profile) setProfile(firestoreData.profile);
+        if (Array.isArray(firestoreData.members)) setMembers(firestoreData.members);
+        if (Array.isArray(firestoreData.donors)) setDonors(firestoreData.donors);
+        if (Array.isArray(firestoreData.notices)) setNotices(firestoreData.notices);
+        if (Array.isArray(firestoreData.funds)) setFunds(firestoreData.funds);
+        if (firestoreData.manualTotalBalance !== undefined) setManualTotalBalance(firestoreData.manualTotalBalance);
+        if (firestoreData.paymentConfig) setPaymentConfig(firestoreData.paymentConfig);
+        populateLocalStorageFromServer(firestoreData, true);
       }
     }).catch(() => {});
   }, [activeScreen]);
