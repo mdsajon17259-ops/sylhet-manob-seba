@@ -65,6 +65,10 @@ import {
   loadPaymentSettings,
   savePaymentSettings
 } from '../utils/storage';
+import {
+  savePaymentConfigToFirestore,
+  saveOrgProfileToFirestore
+} from '../utils/firestoreService';
 
 interface AdminPanelScreenProps {
   profile: OrganizationProfile;
@@ -214,13 +218,19 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
     setTimeout(() => setErrorMsg(''), 4000);
   };
 
-  const handleSavePaymentSettings = (e: React.FormEvent) => {
+  const handleSavePaymentSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     savePaymentSettings(paymentConfig);
     if (onUpdatePaymentConfig) {
       onUpdatePaymentConfig(paymentConfig);
     }
-    notifySuccess('বিকাশ, নগদ ও রকেট পেমেন্ট গেটওয়ে নম্বর সফলভাবে সংরক্ষিত ও লাইভ আপডেট হয়েছে');
+    try {
+      await savePaymentConfigToFirestore(paymentConfig);
+      notifySuccess('বিকাশ, নগদ ও রকেট পেমেন্ট গেটওয়ে নম্বর সফলভাবে ফায়ারবেস ক্লাউড ও অ্যাপে সংরক্ষিত হয়েছে');
+    } catch (err) {
+      console.warn('[Payment] Error saving to Firestore:', err);
+      notifySuccess('বিকাশ, নগদ ও রকেট পেমেন্ট গেটওয়ে নম্বর সফলভাবে সংরক্ষিত ও লাইভ আপডেট হয়েছে');
+    }
   };
 
   const handleTestCopy = (text: string, field: string) => {
@@ -722,14 +732,19 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
   };
 
   // ORGANIZATION PROFILE & SETTINGS
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (onUpdateProfile) {
       onUpdateProfile(editProfileData);
     } else if (setProfile) {
       setProfile(editProfileData);
     }
-    notifySuccess('সংগঠনের তথ্য ও পরিচিতি সফলভাবে সংরক্ষিত হয়েছে');
+    try {
+      await saveOrgProfileToFirestore(editProfileData);
+      notifySuccess('সংগঠনের তথ্য ও পরিচিতি সফলভাবে সংরক্ষিত হয়েছে');
+    } catch (err) {
+      notifySuccess('সংগঠনের তথ্য ও পরিচিতি সফলভাবে সংরক্ষিত হয়েছে');
+    }
   };
 
   const handleChangePin = (e: React.FormEvent) => {

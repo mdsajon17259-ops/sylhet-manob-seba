@@ -75,7 +75,12 @@ export function sanitizeForFirestore<T>(data: T): T {
 export const ORG_DOC_PATH = 'organizations/sylhetmanobseba';
 export const ORG_DOC_REF = doc(db, 'organizations', 'sylhetmanobseba');
 
-// Collection References (Exact collection names matching Firebase Console)
+// Settings Document References
+export const PAYMENT_SETTINGS_REF = doc(db, 'settings', 'payment');
+export const PROFILE_SETTINGS_REF = doc(db, 'settings', 'profile');
+export const ADMIN_SETTINGS_REF = doc(db, 'settings', 'admin');
+
+// Collection References (Dedicated Collections matching Firebase Console)
 export const MEMBERS_COLLECTION = collection(db, 'members');
 export const DONORS_COLLECTION = collection(db, 'donors');
 export const NOTICES_COLLECTION = collection(db, 'notices');
@@ -477,6 +482,24 @@ export async function updateFirestoreKey(key: keyof AppFirestoreData, value: any
       } catch (err) {
         console.warn('[Firestore] Batch funds sync error:', err);
       }
+    } else if (key === 'paymentConfig' && cleanValue) {
+      try {
+        await setDoc(PAYMENT_SETTINGS_REF, {
+          ...cleanValue,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      } catch (err) {
+        console.warn('[Firestore] Error saving to doc(settings, payment):', err);
+      }
+    } else if (key === 'profile' && cleanValue) {
+      try {
+        await setDoc(PROFILE_SETTINGS_REF, {
+          ...cleanValue,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      } catch (err) {
+        console.warn('[Firestore] Error saving to doc(settings, profile):', err);
+      }
     }
 
     return true;
@@ -538,14 +561,35 @@ export async function fetchFirestoreAppData(): Promise<AppFirestoreData | null> 
       console.warn('[Firestore] Error fetching funds collection:', e);
     }
 
-    // 2. Fetch main organization document and merge
+    // 2. Fetch dedicated settings documents (Payment & Profile)
+    try {
+      const paySnap = await getDoc(PAYMENT_SETTINGS_REF);
+      if (paySnap.exists()) {
+        const payData = paySnap.data() as Partial<PaymentGatewayConfig>;
+        paymentConfig = { ...DEFAULT_APP_DATA.paymentConfig, ...payData };
+      }
+    } catch (e) {
+      console.warn('[Firestore] Error fetching payment settings document:', e);
+    }
+
+    try {
+      const profSnap = await getDoc(PROFILE_SETTINGS_REF);
+      if (profSnap.exists()) {
+        const profData = profSnap.data() as Partial<OrganizationProfile>;
+        profile = { ...DEFAULT_APP_DATA.profile, ...profData };
+      }
+    } catch (e) {
+      console.warn('[Firestore] Error fetching profile settings document:', e);
+    }
+
+    // 3. Fetch main organization document and merge
     try {
       const docSnap = await getDoc(ORG_DOC_REF);
       if (docSnap.exists()) {
         const raw = docSnap.data() as Partial<AppFirestoreData>;
-        if (raw.profile) profile = { ...DEFAULT_APP_DATA.profile, ...raw.profile };
+        if (raw.profile && !profSnapExists(raw.profile)) profile = { ...DEFAULT_APP_DATA.profile, ...raw.profile };
         if (raw.adminPin) adminPin = raw.adminPin;
-        if (raw.paymentConfig) paymentConfig = { ...DEFAULT_APP_DATA.paymentConfig, ...raw.paymentConfig };
+        if (raw.paymentConfig) paymentConfig = { ...DEFAULT_APP_DATA.paymentConfig, ...paymentConfig, ...raw.paymentConfig };
         if (raw.manualTotalBalance !== undefined) manualTotalBalance = raw.manualTotalBalance;
         
         // Comprehensive deduplicated union for members
@@ -601,10 +645,18 @@ export async function fetchFirestoreAppData(): Promise<AppFirestoreData | null> 
         donors.forEach((d) => batch.set(doc(db, 'donors', d.id), sanitizeForFirestore(d)));
         notices.forEach((n) => batch.set(doc(db, 'notices', n.id), sanitizeForFirestore(n)));
         funds.forEach((f) => batch.set(doc(db, 'funds', f.id), sanitizeForFirestore(f)));
+        batch.set(PAYMENT_SETTINGS_REF, {
+          ...sanitizeForFirestore(paymentConfig),
+          updatedAt: serverTimestamp()
+        });
+        batch.set(PROFILE_SETTINGS_REF, {
+          ...sanitizeForFirestore(profile),
+          updatedAt: serverTimestamp()
+        });
         batch.set(ORG_DOC_REF, {
-          profile,
+          profile: sanitizeForFirestore(profile),
           adminPin,
-          paymentConfig,
+          paymentConfig: sanitizeForFirestore(paymentConfig),
           manualTotalBalance,
           members: sanitizeForFirestore(members),
           donors: sanitizeForFirestore(donors),
@@ -636,6 +688,10 @@ export async function fetchFirestoreAppData(): Promise<AppFirestoreData | null> 
     console.warn('[Firestore] Error in fetchFirestoreAppData:', e);
     return null;
   }
+}
+
+function profSnapExists(p: any): boolean {
+  return p && typeof p === 'object' && Boolean(p.name);
 }
 
 /**
@@ -796,6 +852,38 @@ export function listenToFirestoreAppData(
       }
     );
     unsubscribers.push(unsubOrg);
+
+    // 6. Payment Settings Document listener (doc(db, 'settings', 'payment'))
+    const unsubPaymentSettings = onSnapshot(
+      PAYMENT_SETTINGS_REF,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const raw = docSnap.data() as Partial<PaymentGatewayConfig>;
+          activeCache.paymentConfig = { ...DEFAULT_APP_DATA.paymentConfig, ...raw };
+          broadcastCurrentCache();
+        }
+      },
+      (err) => {
+        console.warn('[Firestore] Payment settings subscription error:', err);
+      }
+    );
+    unsubscribers.push(unsubPaymentSettings);
+
+    // 7. Profile Settings Document listener (doc(db, 'settings', 'profile'))
+    const unsubProfileSettings = onSnapshot(
+      PROFILE_SETTINGS_REF,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const raw = docSnap.data() as Partial<OrganizationProfile>;
+          activeCache.profile = { ...DEFAULT_APP_DATA.profile, ...raw };
+          broadcastCurrentCache();
+        }
+      },
+      (err) => {
+        console.warn('[Firestore] Profile settings subscription error:', err);
+      }
+    );
+    unsubscribers.push(unsubProfileSettings);
 
   } catch (e) {
     console.warn('[Firestore] Failed to attach listeners:', e);
