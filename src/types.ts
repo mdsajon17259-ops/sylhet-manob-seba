@@ -30,6 +30,9 @@ export interface PaymentGatewayConfig {
   rocketType: 'Personal' | 'Merchant' | 'Agent';
   rocketInstruction?: string;
   rocketInstructions?: string;
+  bankDetails?: string;
+  instructions?: string;
+  activeGateways?: string[];
 }
 
 export interface BloodDonor {

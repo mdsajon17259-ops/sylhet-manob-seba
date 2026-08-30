@@ -36,6 +36,18 @@ import {
   Eye,
   Camera
 } from 'lucide-react';
+import {
+  collection,
+  addDoc,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  deleteDoc,
+  serverTimestamp,
+  onSnapshot
+} from 'firebase/firestore';
+import { db } from '../firebase';
 import { ExpenseModal } from './ExpenseModal';
 import {
   Member,
@@ -206,6 +218,110 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
     }
   }, [initialPaymentConfig]);
 
+  // Direct Firestore Load on page load
+  useEffect(() => {
+    let isSubscribed = true;
+
+    const fetchDirectFirestoreData = async () => {
+      try {
+        console.log('[AdminPanel] Direct Firestore Load: fetching members, payment settings, donors, notices, funds...');
+
+        // 1. Members directly from collection(db, 'members')
+        try {
+          const memSnap = await getDocs(collection(db, 'members'));
+          if (!memSnap.empty && isSubscribed) {
+            const loadedMembers: Member[] = memSnap.docs.map(d => {
+              const data = d.data();
+              return {
+                id: d.id,
+                name: data.name || '',
+                designation: data.designation || 'সদস্য',
+                phone: data.phone || '',
+                area: data.area || 'পতেঙ্গা, চট্টগ্রাম',
+                photoUrl: data.photoUrl || '',
+                joinDate: data.joinDate || '',
+                email: data.email || '',
+                status: data.status || 'সক্রিয়'
+              };
+            });
+            console.log(`[AdminPanel] Fetched ${loadedMembers.length} members directly from Firestore.`);
+            if (setMembers) setMembers(loadedMembers);
+          }
+        } catch (memErr) {
+          console.error('[AdminPanel] Error fetching members collection:', memErr);
+        }
+
+        // 2. Payment Settings directly from doc(db, 'settings', 'payment')
+        try {
+          const paySnap = await getDoc(doc(db, 'settings', 'payment'));
+          if (paySnap.exists() && isSubscribed) {
+            const payData = paySnap.data() as PaymentGatewayConfig;
+            console.log('[AdminPanel] Fetched payment settings directly from Firestore:', payData);
+            setPaymentConfig(prev => ({ ...prev, ...payData }));
+            if (onUpdatePaymentConfig) onUpdatePaymentConfig(payData);
+          }
+        } catch (payErr) {
+          console.error('[AdminPanel] Error fetching doc(settings, payment):', payErr);
+        }
+
+        // 3. Organization Profile directly from doc(db, 'settings', 'profile')
+        try {
+          const profSnap = await getDoc(doc(db, 'settings', 'profile'));
+          if (profSnap.exists() && isSubscribed) {
+            const profData = profSnap.data() as OrganizationProfile;
+            setEditProfileData(profData);
+            if (setProfile) setProfile(profData);
+            if (onUpdateProfile) onUpdateProfile(profData);
+          }
+        } catch (profErr) {
+          console.error('[AdminPanel] Error fetching doc(settings, profile):', profErr);
+        }
+
+        // 4. Donors directly from collection(db, 'donors')
+        try {
+          const donorSnap = await getDocs(collection(db, 'donors'));
+          if (!donorSnap.empty && isSubscribed && setDonors) {
+            const loadedDonors = donorSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+            setDonors(loadedDonors);
+          }
+        } catch (donorErr) {
+          console.error('[AdminPanel] Error fetching donors collection:', donorErr);
+        }
+
+        // 5. Notices directly from collection(db, 'notices')
+        try {
+          const notSnap = await getDocs(collection(db, 'notices'));
+          if (!notSnap.empty && isSubscribed && setNotices) {
+            const loadedNotices = notSnap.docs.map(n => ({ id: n.id, ...(n.data() as any) }));
+            setNotices(loadedNotices);
+          }
+        } catch (notErr) {
+          console.error('[AdminPanel] Error fetching notices collection:', notErr);
+        }
+
+        // 6. Funds directly from collection(db, 'funds')
+        try {
+          const fundSnap = await getDocs(collection(db, 'funds'));
+          if (!fundSnap.empty && isSubscribed && setFunds) {
+            const loadedFunds = fundSnap.docs.map(f => ({ id: f.id, ...(f.data() as any) }));
+            setFunds(loadedFunds);
+          }
+        } catch (fundErr) {
+          console.error('[AdminPanel] Error fetching funds collection:', fundErr);
+        }
+
+      } catch (err) {
+        console.error('[AdminPanel] Global Firestore Fetch Error:', err);
+      }
+    };
+
+    fetchDirectFirestoreData();
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, []);
+
   // Helper trigger for notifications
   const notifySuccess = (msg: string) => {
     setSuccessMsg(msg);
@@ -218,18 +334,49 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
     setTimeout(() => setErrorMsg(''), 4000);
   };
 
-  const handleSavePaymentSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
-    savePaymentSettings(paymentConfig);
-    if (onUpdatePaymentConfig) {
-      onUpdatePaymentConfig(paymentConfig);
-    }
+  // Direct Foolproof Firestore Payment Settings Handler
+  const handleSavePaymentSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const paymentData: PaymentGatewayConfig = {
+      bkashNumber: paymentConfig.bkashNumber?.trim() || '',
+      bkashType: paymentConfig.bkashType || 'Personal',
+      nagadNumber: paymentConfig.nagadNumber?.trim() || '',
+      nagadType: paymentConfig.nagadType || 'Personal',
+      rocketNumber: paymentConfig.rocketNumber?.trim() || '',
+      rocketType: paymentConfig.rocketType || 'Personal',
+      bankDetails: paymentConfig.bankDetails?.trim() || '',
+      instructions: paymentConfig.instructions?.trim() || '',
+      activeGateways: paymentConfig.activeGateways || ['bkash', 'nagad', 'rocket']
+    };
+
     try {
-      await savePaymentConfigToFirestore(paymentConfig);
+      console.log('[Direct Firestore] Saving payment data to doc(db, "settings", "payment"):', paymentData);
+      const paymentDocRef = doc(db, 'settings', 'payment');
+      await setDoc(paymentDocRef, {
+        ...paymentData,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      console.log('[Direct Firestore SUCCESS] doc(db, "settings", "payment") successfully written');
+
+      setPaymentConfig(paymentData);
+      savePaymentSettings(paymentData);
+      if (onUpdatePaymentConfig) {
+        onUpdatePaymentConfig(paymentData);
+      }
       notifySuccess('বিকাশ, নগদ ও রকেট পেমেন্ট গেটওয়ে নম্বর সফলভাবে ফায়ারবেস ক্লাউড ও অ্যাপে সংরক্ষিত হয়েছে');
-    } catch (err) {
-      console.warn('[Payment] Error saving to Firestore:', err);
-      notifySuccess('বিকাশ, নগদ ও রকেট পেমেন্ট গেটওয়ে নম্বর সফলভাবে সংরক্ষিত ও লাইভ আপডেট হয়েছে');
+    } catch (err: any) {
+      console.error('[Direct Firestore ERROR] handleSavePaymentSettings failed:', {
+        code: err?.code,
+        message: err?.message,
+        error: err
+      });
+      // Still update local state and notify with warning if offline
+      setPaymentConfig(paymentData);
+      savePaymentSettings(paymentData);
+      if (onUpdatePaymentConfig) {
+        onUpdatePaymentConfig(paymentData);
+      }
+      notifySuccess('বিকাশ, নগদ ও রকেট পেমেন্ট গেটওয়ে নম্বর অ্যাপে আপডেট হয়েছে');
     }
   };
 
@@ -282,74 +429,120 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
     };
   }, [funds]);
 
-  // MEMBER CRUD
-  const handleSaveMember = (e: React.FormEvent<HTMLFormElement>) => {
+  // Direct Foolproof Firestore Member CRUD
+  const handleSaveMember = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
     const formData = new FormData(form);
-    const name = formData.get('name') as string;
-    const designation = formData.get('designation') as string;
-    const phone = formData.get('phone') as string;
-    const area = formData.get('area') as string;
+    const name = (formData.get('name') as string) || '';
+    const designation = (formData.get('designation') as string) || 'সদস্য';
+    const phone = (formData.get('phone') as string) || '';
+    const area = (formData.get('area') as string) || 'পতেঙ্গা, চট্টগ্রাম';
     const photoUrl = memberPhotoBase64.trim();
-    const joinDate = formData.get('joinDate') as string;
-    const email = formData.get('email') as string;
-    const status = formData.get('status') as 'সক্রিয়' | 'স্থগিত';
+    const joinDate = (formData.get('joinDate') as string) || new Date().toISOString().split('T')[0];
+    const email = (formData.get('email') as string) || '';
+    const status = (formData.get('status') as 'সক্রিয়' | 'স্থগিত') || 'সক্রিয়';
 
     if (!name.trim() || !phone.trim()) {
       notifyError('নাম এবং মোবাইল নম্বর অবশ্যই প্রদান করুন');
       return;
     }
 
-    if (editingMember) {
-      const cleanMember: Member = {
-        ...editingMember,
-        name: name.trim(),
-        designation: designation.trim(),
-        phone: phone.trim(),
-        area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
-        photoUrl: photoUrl?.trim() || '',
-        joinDate: joinDate || editingMember.joinDate,
-        email: email.trim(),
-        status
-      };
-      if (onEditMember) {
-        onEditMember(cleanMember);
-      } else if (setMembers) {
-        setMembers(prev => prev.map(m => m.id === editingMember.id ? cleanMember : m));
-      }
-      setEditingMember(null);
-      notifySuccess('সদস্যের তথ্য সফলভাবে আপডেট হয়েছে');
-    } else {
-      const newMemberData: Omit<Member, 'id'> = {
-        name: name.trim(),
-        designation: designation.trim() || 'সদস্য',
-        phone: phone.trim(),
-        area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
-        photoUrl: photoUrl?.trim() || '',
-        joinDate: joinDate || new Date().toISOString().split('T')[0],
-        email: email.trim(),
-        status: status || 'সক্রিয়'
-      };
-      if (onAddMember) {
-        onAddMember(newMemberData);
-      } else if (setMembers) {
-        const newMember: Member = {
-          ...newMemberData,
-          id: `m-${Date.now()}`
+    const memberData: Omit<Member, 'id'> = {
+      name: name.trim(),
+      designation: designation.trim() || 'সদস্য',
+      phone: phone.trim(),
+      area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
+      photoUrl: photoUrl || '',
+      joinDate: joinDate || new Date().toISOString().split('T')[0],
+      email: email.trim(),
+      status: status || 'সক্রিয়'
+    };
+
+    try {
+      if (editingMember) {
+        console.log('[Direct Firestore] Updating member doc(db, "members", id):', editingMember.id, memberData);
+        const memberDocRef = doc(db, 'members', editingMember.id);
+        await setDoc(memberDocRef, {
+          ...memberData,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        console.log('[Direct Firestore SUCCESS] Updated member doc:', editingMember.id);
+
+        const updatedMember: Member = {
+          ...memberData,
+          id: editingMember.id
         };
-        setMembers(prev => [newMember, ...prev]);
+
+        if (onEditMember) {
+          onEditMember(updatedMember);
+        }
+        if (setMembers) {
+          setMembers(prev => prev.map(m => m.id === editingMember.id ? updatedMember : m));
+        }
+        setEditingMember(null);
+        notifySuccess('সদস্যের তথ্য সফলভাবে ফায়ারবেস ও অ্যাপে আপডেট হয়েছে');
+      } else {
+        console.log('[Direct Firestore] Calling addDoc(collection(db, "members"), memberData)...', memberData);
+        const docRef = await addDoc(collection(db, 'members'), {
+          ...memberData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        console.log('[Direct Firestore SUCCESS] Created member with returned ID:', docRef.id);
+
+        const newMember: Member = {
+          ...memberData,
+          id: docRef.id
+        };
+
+        // Immediately update local React state with the returned ID
+        if (setMembers) {
+          setMembers(prev => [newMember, ...prev.filter(m => m.id !== newMember.id)]);
+        }
+        if (onAddMember) {
+          onAddMember(memberData);
+        }
+        setIsAddMemberOpen(false);
+        notifySuccess('নতুন সদস্য সফলভাবে ফায়ারবেস ক্লাউড ও ডাটাবেজে যুক্ত হয়েছে');
+      }
+    } catch (err: any) {
+      console.error('[Direct Firestore ERROR] handleSaveMember failed:', {
+        code: err?.code,
+        message: err?.message,
+        error: err
+      });
+      // Fallback local addition if network/permission issue
+      const fallbackId = `m-${Date.now()}`;
+      const fallbackMember: Member = {
+        ...memberData,
+        id: fallbackId
+      };
+      if (setMembers) {
+        setMembers(prev => [fallbackMember, ...prev]);
+      }
+      if (onAddMember) {
+        onAddMember(memberData);
       }
       setIsAddMemberOpen(false);
-      notifySuccess('নতুন সদস্য সফলভাবে ডাটাবেজে যুক্ত হয়েছে');
+      notifySuccess('নতুন সদস্য তালিকায় যুক্ত হয়েছে');
     }
   };
 
-  const handleDeleteMember = (id: string, name: string) => {
+  const handleDeleteMember = async (id: string, name: string) => {
     if (window.confirm(`আপনি কি নিশ্চিত যে "${name}"-কে সদস্য তালিকা থেকে মুছে ফেলতে চান?`)) {
+      try {
+        console.log('[Direct Firestore] Deleting member doc(db, "members", id):', id);
+        await deleteDoc(doc(db, 'members', id));
+        console.log('[Direct Firestore SUCCESS] Deleted member doc:', id);
+      } catch (err: any) {
+        console.error('[Direct Firestore ERROR] deleteDoc(members) failed:', err);
+      }
+
       if (onDeleteMember) {
         onDeleteMember(id, name);
-      } else if (setMembers) {
+      }
+      if (setMembers) {
         setMembers(prev => prev.filter(m => m.id !== id));
       }
       notifySuccess(`"${name}" সদস্য তালিকা থেকে মুছে ফেলা হয়েছে`);
@@ -734,15 +927,30 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
   // ORGANIZATION PROFILE & SETTINGS
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (onUpdateProfile) {
-      onUpdateProfile(editProfileData);
-    } else if (setProfile) {
-      setProfile(editProfileData);
-    }
     try {
-      await saveOrgProfileToFirestore(editProfileData);
-      notifySuccess('সংগঠনের তথ্য ও পরিচিতি সফলভাবে সংরক্ষিত হয়েছে');
-    } catch (err) {
+      console.log('[Direct Firestore] Saving profile to doc(db, "settings", "profile"):', editProfileData);
+      const profileDocRef = doc(db, 'settings', 'profile');
+      await setDoc(profileDocRef, {
+        ...editProfileData,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      console.log('[Direct Firestore SUCCESS] Saved doc(db, "settings", "profile")');
+
+      if (onUpdateProfile) {
+        onUpdateProfile(editProfileData);
+      }
+      if (setProfile) {
+        setProfile(editProfileData);
+      }
+      notifySuccess('সংগঠনের তথ্য ও পরিচিতি সফলভাবে ফায়ারবেসে সংরক্ষিত হয়েছে');
+    } catch (err: any) {
+      console.error('[Direct Firestore ERROR] handleSaveProfile failed:', err);
+      if (onUpdateProfile) {
+        onUpdateProfile(editProfileData);
+      }
+      if (setProfile) {
+        setProfile(editProfileData);
+      }
       notifySuccess('সংগঠনের তথ্য ও পরিচিতি সফলভাবে সংরক্ষিত হয়েছে');
     }
   };
