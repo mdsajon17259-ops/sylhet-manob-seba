@@ -96,8 +96,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       disbursedTo: disbursedTo.trim(),
       date: date || new Date().toISOString().split('T')[0],
       category: category || 'ত্রাণ ও খাদ্য সহায়তা',
-      voucherNo: voucherNo?.trim() || undefined,
-      notes: notes?.trim() || undefined
+      voucherNo: voucherNo?.trim() || '',
+      notes: notes?.trim() || ''
     };
 
     const saveHandler = onSubmit || onSave;

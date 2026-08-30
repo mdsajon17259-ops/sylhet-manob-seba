@@ -506,7 +506,7 @@ export async function fetchFirestoreAppData(): Promise<AppFirestoreData | null> 
       console.warn('[Firestore] Error fetching funds collection:', e);
     }
 
-    // 2. Fetch main organization document
+    // 2. Fetch main organization document and merge
     try {
       const docSnap = await getDoc(ORG_DOC_REF);
       if (docSnap.exists()) {
@@ -515,18 +515,39 @@ export async function fetchFirestoreAppData(): Promise<AppFirestoreData | null> 
         if (raw.adminPin) adminPin = raw.adminPin;
         if (raw.paymentConfig) paymentConfig = { ...DEFAULT_APP_DATA.paymentConfig, ...raw.paymentConfig };
         if (raw.manualTotalBalance !== undefined) manualTotalBalance = raw.manualTotalBalance;
-        if (members.length === 0 && Array.isArray(raw.members) && raw.members.length > 0) {
-          members = raw.members;
+        
+        // Comprehensive deduplicated union for members
+        if (Array.isArray(raw.members) && raw.members.length > 0) {
+          const memberMap = new Map<string, Member>();
+          raw.members.forEach((m) => { if (m && m.id) memberMap.set(m.id, m); });
+          members.forEach((m) => { if (m && m.id) memberMap.set(m.id, m); });
+          members = Array.from(memberMap.values());
         }
-        if (donors.length === 0 && Array.isArray(raw.donors) && raw.donors.length > 0) {
-          donors = raw.donors;
+
+        // Comprehensive deduplicated union for donors
+        if (Array.isArray(raw.donors) && raw.donors.length > 0) {
+          const donorMap = new Map<string, BloodDonor>();
+          raw.donors.forEach((d) => { if (d && d.id) donorMap.set(d.id, d); });
+          donors.forEach((d) => { if (d && d.id) donorMap.set(d.id, d); });
+          donors = Array.from(donorMap.values());
         }
-        if (notices.length === 0 && Array.isArray(raw.notices) && raw.notices.length > 0) {
-          notices = raw.notices;
+
+        // Comprehensive deduplicated union for notices
+        if (Array.isArray(raw.notices) && raw.notices.length > 0) {
+          const noticeMap = new Map<string, Notice>();
+          raw.notices.forEach((n) => { if (n && n.id) noticeMap.set(n.id, n); });
+          notices.forEach((n) => { if (n && n.id) noticeMap.set(n.id, n); });
+          notices = Array.from(noticeMap.values());
         }
-        if (funds.length === 0 && Array.isArray(raw.funds) && raw.funds.length > 0) {
-          funds = raw.funds;
+
+        // Comprehensive deduplicated union for funds
+        if (Array.isArray(raw.funds) && raw.funds.length > 0) {
+          const fundMap = new Map<string, FundRecord>();
+          raw.funds.forEach((f) => { if (f && f.id) fundMap.set(f.id, f); });
+          funds.forEach((f) => { if (f && f.id) fundMap.set(f.id, f); });
+          funds = Array.from(fundMap.values());
         }
+
         if (raw.updatedAt) updatedAt = raw.updatedAt;
       }
     } catch (docErr) {

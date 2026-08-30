@@ -515,7 +515,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
           month: month.trim() || 'চলতি মাস',
           phone: phone.trim(),
           notes: notes.trim() || (status === 'Paid' ? 'পরিশোধিত' : status === 'Expense' ? 'সংগঠনের ব্যয়' : 'বকেয়া'),
-          type: status === 'Expense' ? 'expense' : undefined
+          type: status === 'Expense' ? 'expense' : 'income'
         });
       } else if (setFunds) {
         const newFund: FundRecord = {
@@ -527,7 +527,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
           month: month.trim() || 'চলতি মাস',
           phone: phone.trim(),
           notes: notes.trim() || (status === 'Paid' ? 'পরিশোধিত' : status === 'Expense' ? 'সংগঠনের ব্যয়' : 'বকেয়া'),
-          type: status === 'Expense' ? 'expense' : undefined
+          type: status === 'Expense' ? 'expense' : 'income'
         };
         setFunds(prev => [newFund, ...prev]);
       }
@@ -545,7 +545,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
     voucherNo?: string;
     notes?: string;
   }) => {
-    let noteText: string | undefined = undefined;
+    let noteText = '';
     const cleanVoucher = data.voucherNo ? data.voucherNo.trim() : '';
     const cleanNotes = data.notes ? data.notes.trim() : '';
 

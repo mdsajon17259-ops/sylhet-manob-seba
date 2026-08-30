@@ -125,9 +125,9 @@ export const FundScreen: React.FC<FundScreenProps> = ({
       description: noteText,
       date: new Date().toISOString().split('T')[0],
       category: 'মাসিক চাঁদা',
-      phone: depositSenderPhone.trim() || undefined,
+      phone: depositSenderPhone.trim() || '',
       trxId: depositTrxId.trim(),
-      senderPhone: depositSenderPhone.trim() || undefined,
+      senderPhone: depositSenderPhone.trim() || '',
       gateway: selectedGateway,
       notes: `অপেক্ষমান যাচাই (TrxID: ${depositTrxId.trim()})`
     });
@@ -160,7 +160,7 @@ export const FundScreen: React.FC<FundScreenProps> = ({
     voucherNo?: string;
     notes?: string;
   }) => {
-    let noteText: string | undefined = undefined;
+    let noteText = '';
     const cleanVoucher = data.voucherNo ? data.voucherNo.trim() : '';
     const cleanNotes = data.notes ? data.notes.trim() : '';
 
