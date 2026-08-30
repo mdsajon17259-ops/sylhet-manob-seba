@@ -30,6 +30,7 @@ import {
   clearAllData 
 } from './utils/storage';
 import { fetchServerDatabase } from './utils/serverApi';
+import { listenToFirestoreAppData } from './utils/firestoreService';
 import { isDonorEligible } from './utils/helpers';
 import { Header } from './components/Header';
 import { HomeScreen } from './components/HomeScreen';
@@ -67,7 +68,10 @@ export default function App() {
 
   // Real-time synchronization across Admin Panel, Member views, and other browser tabs
   useEffect(() => {
+    let isMounted = true;
+
     const syncAllFromStorage = () => {
+      if (!isMounted) return;
       setProfile(loadOrgProfile());
       setMembers(loadMembers());
       setDonors(loadDonors());
@@ -77,42 +81,66 @@ export default function App() {
       setPaymentConfig(loadPaymentSettings());
     };
 
-    // Load and sync from central server database (prevents data loss if device cache/data is cleared)
+    // Load and sync from central server database (auto-fetches latest admin updates instantly)
     const syncWithServer = async () => {
       try {
         const serverData = await fetchServerDatabase();
-        if (serverData) {
-          populateLocalStorageFromServer(serverData);
-          syncAllFromStorage();
+        if (serverData && isMounted) {
+          const hasChanged = populateLocalStorageFromServer(serverData);
+          if (hasChanged) {
+            syncAllFromStorage();
+          }
         }
       } catch (e) {
-        console.warn('Server sync error on initialization:', e);
+        console.warn('Background server sync error:', e);
       }
     };
 
-    // Initial server fetch
+    // 1. Instant Firestore Real-time Listener (Sub-second sync across all members & devices)
+    const unsubscribeFirestore = listenToFirestoreAppData((firestoreData) => {
+      if (!isMounted || !firestoreData) return;
+      const hasChanged = populateLocalStorageFromServer(firestoreData);
+      if (hasChanged) {
+        syncAllFromStorage();
+      }
+    });
+
+    // 2. Initial instant sync on app launch / page open
     syncWithServer();
 
-    // 1. Cross-tab storage event
+    // 3. Continuous Background Heartbeat Auto-Sync (Every 5 seconds)
+    // Ensures non-technical members always see live updates without ever having to refresh
+    const autoSyncInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        syncWithServer();
+      }
+    }, 5000);
+
+    // 4. Cross-tab storage event
     window.addEventListener('storage', syncAllFromStorage);
-    // 2. In-app custom sync event
+    // 5. In-app custom sync event
     window.addEventListener('pms_data_updated', syncAllFromStorage);
-    // 3. Tab visibility / Focus event & Network reconnect
+    
+    // 6. Tab visibility / Focus event & Network reconnect
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         syncAllFromStorage();
         syncWithServer();
       }
     };
+    const handleFocus = () => {
+      syncAllFromStorage();
+      syncWithServer();
+    };
     const handleOnline = () => {
       syncWithServer();
     };
 
-    window.addEventListener('focus', syncAllFromStorage);
+    window.addEventListener('focus', handleFocus);
     window.addEventListener('online', handleOnline);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // 4. BroadcastChannel support for modern browsers
+    // 7. BroadcastChannel support for modern browsers
     let bc: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== 'undefined') {
       try {
@@ -120,6 +148,7 @@ export default function App() {
         bc.onmessage = (event) => {
           if (event.data && event.data.type === 'PMS_DATA_SYNC') {
             syncAllFromStorage();
+            syncWithServer();
           }
         };
       } catch (e) {
@@ -128,9 +157,12 @@ export default function App() {
     }
 
     return () => {
+      isMounted = false;
+      unsubscribeFirestore();
+      clearInterval(autoSyncInterval);
       window.removeEventListener('storage', syncAllFromStorage);
       window.removeEventListener('pms_data_updated', syncAllFromStorage);
-      window.removeEventListener('focus', syncAllFromStorage);
+      window.removeEventListener('focus', handleFocus);
       window.removeEventListener('online', handleOnline);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (bc) {
@@ -138,6 +170,24 @@ export default function App() {
       }
     };
   }, []);
+
+  // Quick background sync on navigation tab changes to guarantee fresh view
+  useEffect(() => {
+    fetchServerDatabase().then((serverData) => {
+      if (serverData) {
+        const hasChanged = populateLocalStorageFromServer(serverData);
+        if (hasChanged) {
+          setProfile(loadOrgProfile());
+          setMembers(loadMembers());
+          setDonors(loadDonors());
+          setNotices(loadNotices());
+          setFunds(loadFunds());
+          setManualTotalBalance(loadManualTotalBalance());
+          setPaymentConfig(loadPaymentSettings());
+        }
+      }
+    }).catch(() => {});
+  }, [activeScreen]);
 
   const handleUpdateProfile = (newProfile: OrganizationProfile) => {
     setProfile(newProfile);

@@ -60,41 +60,87 @@ export function notifyDataChange(key: string, data?: any): void {
 /**
  * Hydrates local storage with server-persisted database state
  */
-export function populateLocalStorageFromServer(serverDb: ServerDatabasePayload): void {
-  if (typeof window === 'undefined' || !serverDb) return;
+export function populateLocalStorageFromServer(serverDb: ServerDatabasePayload): boolean {
+  if (typeof window === 'undefined' || !serverDb) return false;
+  let hasChanged = false;
   try {
     if (serverDb.profile) {
-      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(serverDb.profile));
+      const current = localStorage.getItem(STORAGE_KEYS.PROFILE);
+      const incoming = JSON.stringify(serverDb.profile);
+      if (current !== incoming) {
+        localStorage.setItem(STORAGE_KEYS.PROFILE, incoming);
+        hasChanged = true;
+      }
     }
     if (Array.isArray(serverDb.members)) {
-      localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(serverDb.members));
+      const current = localStorage.getItem(STORAGE_KEYS.MEMBERS);
+      const incoming = JSON.stringify(serverDb.members);
+      if (current !== incoming) {
+        localStorage.setItem(STORAGE_KEYS.MEMBERS, incoming);
+        hasChanged = true;
+      }
     }
     if (Array.isArray(serverDb.donors)) {
-      localStorage.setItem(STORAGE_KEYS.DONORS, JSON.stringify(serverDb.donors));
+      const current = localStorage.getItem(STORAGE_KEYS.DONORS);
+      const incoming = JSON.stringify(serverDb.donors);
+      if (current !== incoming) {
+        localStorage.setItem(STORAGE_KEYS.DONORS, incoming);
+        hasChanged = true;
+      }
     }
     if (Array.isArray(serverDb.notices)) {
-      localStorage.setItem(STORAGE_KEYS.NOTICES, JSON.stringify(serverDb.notices));
+      const current = localStorage.getItem(STORAGE_KEYS.NOTICES);
+      const incoming = JSON.stringify(serverDb.notices);
+      if (current !== incoming) {
+        localStorage.setItem(STORAGE_KEYS.NOTICES, incoming);
+        hasChanged = true;
+      }
     }
     if (Array.isArray(serverDb.funds)) {
-      localStorage.setItem(STORAGE_KEYS.FUNDS, JSON.stringify(serverDb.funds));
+      const current = localStorage.getItem(STORAGE_KEYS.FUNDS);
+      const incoming = JSON.stringify(serverDb.funds);
+      if (current !== incoming) {
+        localStorage.setItem(STORAGE_KEYS.FUNDS, incoming);
+        hasChanged = true;
+      }
     }
     if (serverDb.manualTotalBalance !== undefined) {
+      const current = localStorage.getItem(STORAGE_KEYS.TOTAL_ORG_BALANCE);
       if (serverDb.manualTotalBalance === null) {
-        localStorage.removeItem(STORAGE_KEYS.TOTAL_ORG_BALANCE);
+        if (current !== null) {
+          localStorage.removeItem(STORAGE_KEYS.TOTAL_ORG_BALANCE);
+          hasChanged = true;
+        }
       } else {
-        localStorage.setItem(STORAGE_KEYS.TOTAL_ORG_BALANCE, serverDb.manualTotalBalance.toString());
+        const incoming = serverDb.manualTotalBalance.toString();
+        if (current !== incoming) {
+          localStorage.setItem(STORAGE_KEYS.TOTAL_ORG_BALANCE, incoming);
+          hasChanged = true;
+        }
       }
     }
     if (serverDb.paymentConfig) {
-      localStorage.setItem(STORAGE_KEYS.PAYMENT_SETTINGS, JSON.stringify(serverDb.paymentConfig));
+      const current = localStorage.getItem(STORAGE_KEYS.PAYMENT_SETTINGS);
+      const incoming = JSON.stringify(serverDb.paymentConfig);
+      if (current !== incoming) {
+        localStorage.setItem(STORAGE_KEYS.PAYMENT_SETTINGS, incoming);
+        hasChanged = true;
+      }
     }
     if (serverDb.adminPin) {
-      localStorage.setItem(STORAGE_KEYS.ADMIN_PIN, serverDb.adminPin);
+      const current = localStorage.getItem(STORAGE_KEYS.ADMIN_PIN);
+      if (current !== serverDb.adminPin) {
+        localStorage.setItem(STORAGE_KEYS.ADMIN_PIN, serverDb.adminPin);
+        hasChanged = true;
+      }
     }
-    notifyDataChange('HYDRATE_FROM_SERVER', serverDb);
+    if (hasChanged) {
+      notifyDataChange('HYDRATE_FROM_SERVER', serverDb);
+    }
   } catch (e) {
     console.error('Error populating local storage from server state:', e);
   }
+  return hasChanged;
 }
 
 // Admin PIN normalization and verification

@@ -43,8 +43,12 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests or chrome-extension URLs
-  if (request.method !== 'GET' || url.protocol.startsWith('chrome-extension')) {
+  // Skip non-GET requests, chrome extensions, or backend API sync endpoints
+  if (
+    request.method !== 'GET' ||
+    url.protocol.startsWith('chrome-extension') ||
+    url.pathname.startsWith('/api/')
+  ) {
     return;
   }
 

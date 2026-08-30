@@ -1,19 +1,24 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: '15mb' }));
 
-// Ensure server data directory exists
-const DATA_DIR = path.join(process.cwd(), 'server_data');
+// No-cache middleware for API routes to guarantee fresh updates for non-technical users
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
+
+// Clean and safe working directory resolution
+const rootDir = process.cwd();
+const DATA_DIR = path.join(rootDir, 'server_data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
 interface AppDatabase {
@@ -217,10 +222,33 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    const distPath = path.join(rootDir, 'dist');
+    
+    // Service worker must always be fresh
+    app.get('/sw.js', (req, res, next) => {
+      const swFile = path.join(distPath, 'sw.js');
+      if (fs.existsSync(swFile)) {
+        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        return res.sendFile(swFile);
+      }
+      next();
+    });
+
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (filePath && (filePath.endsWith('index.html') || filePath.endsWith('sw.js'))) {
+          res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        }
+      }
+    }));
+    
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const indexFile = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexFile)) {
+        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        return res.sendFile(indexFile);
+      }
+      res.status(200).send('<!DOCTYPE html><html><head><title>সিলেট মানব সেবা সংগঠন</title></head><body><div id="root"></div></body></html>');
     });
   }
 

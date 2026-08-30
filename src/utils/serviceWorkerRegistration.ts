@@ -25,8 +25,11 @@ export function registerServiceWorker(config?: ServiceWorkerConfig): void {
             installingWorker.onstatechange = () => {
               if (installingWorker.state === 'installed') {
                 if (navigator.serviceWorker.controller) {
-                  // New content is available and will be used when all tabs for this page are closed.
-                  console.log('[SW] New content is available; please refresh.');
+                  // New version is available -> automatically notify service worker to take control
+                  console.log('[SW] New version detected, auto-activating...');
+                  if (installingWorker) {
+                    installingWorker.postMessage({ type: 'SKIP_WAITING' });
+                  }
                   if (config && config.onUpdate) {
                     config.onUpdate(registration);
                   }
@@ -40,6 +43,13 @@ export function registerServiceWorker(config?: ServiceWorkerConfig): void {
               }
             };
           };
+
+          // Periodically check for application updates in the background (every 10 mins)
+          setInterval(() => {
+            if (navigator.onLine) {
+              registration.update().catch(() => {});
+            }
+          }, 10 * 60 * 1000);
         })
         .catch((error) => {
           console.warn('[SW] Error during service worker registration:', error);

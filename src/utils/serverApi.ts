@@ -1,4 +1,4 @@
-// Server API synchronization client for persistent cloud/container storage
+// Server API & Firestore synchronization client for persistent cloud/container storage
 import {
   Member,
   BloodDonor,
@@ -7,6 +7,12 @@ import {
   OrganizationProfile,
   PaymentGatewayConfig
 } from '../types';
+import {
+  fetchFirestoreAppData,
+  updateFirestoreKey,
+  resetFirestoreData,
+  clearFirestoreData
+} from './firestoreService';
 
 export interface ServerDatabasePayload {
   profile?: OrganizationProfile;
@@ -21,15 +27,25 @@ export interface ServerDatabasePayload {
 }
 
 /**
- * Fetch full persisted database state from the server
+ * Fetch full persisted database state from Firestore (with server fallback)
  */
 export async function fetchServerDatabase(): Promise<ServerDatabasePayload | null> {
   try {
-    const response = await fetch('/api/data', {
+    // 1. Try Firestore first
+    const firestoreData = await fetchFirestoreAppData();
+    if (firestoreData) {
+      return firestoreData;
+    }
+
+    // 2. Fallback to Express backend if Firestore is temporarily offline
+    const timestamp = Date.now();
+    const response = await fetch(`/api/data?_t=${timestamp}`, {
       method: 'GET',
+      cache: 'no-store',
       headers: {
         'Accept': 'application/json',
-        'Cache-Control': 'no-cache'
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
       }
     });
 
@@ -50,7 +66,7 @@ export async function fetchServerDatabase(): Promise<ServerDatabasePayload | nul
 }
 
 /**
- * Push specific key update to the server in background
+ * Push specific key update to Firestore and server in background
  */
 export async function syncKeyToServer(
   key:
@@ -65,6 +81,12 @@ export async function syncKeyToServer(
   value: any
 ): Promise<boolean> {
   try {
+    // 1. Update directly in Firestore
+    updateFirestoreKey(key, value).catch((e) => {
+      console.warn(`[Firestore] Async update failed for ${key}:`, e);
+    });
+
+    // 2. Backup update in local server
     const response = await fetch(`/api/data/${key}`, {
       method: 'POST',
       headers: {
@@ -87,59 +109,35 @@ export async function syncKeyToServer(
 }
 
 /**
- * Push full dataset to server
- */
-export async function syncFullToServer(data: ServerDatabasePayload): Promise<boolean> {
-  try {
-    const response = await fetch('/api/data', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    });
-
-    if (!response.ok) {
-      console.warn('[ServerApi] Failed to sync full database to server:', response.status);
-      return false;
-    }
-
-    const result = await response.json();
-    return Boolean(result && result.success);
-  } catch (error) {
-    console.warn('[ServerApi] Error syncing full database to server:', error);
-    return false;
-  }
-}
-
-/**
- * Reset server database to default
+ * Reset server & Firestore database to default
  */
 export async function resetServerDatabase(): Promise<boolean> {
   try {
+    resetFirestoreData().catch(() => {});
     const response = await fetch('/api/data-action/reset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
     return response.ok;
   } catch (e) {
-    console.warn('[ServerApi] Error resetting server database:', e);
+    console.warn('[ServerApi] Error resetting database:', e);
     return false;
   }
 }
 
 /**
- * Clear server data collections
+ * Clear data collections in Firestore & server
  */
 export async function clearServerDatabase(): Promise<boolean> {
   try {
+    clearFirestoreData().catch(() => {});
     const response = await fetch('/api/data-action/clear', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
     return response.ok;
   } catch (e) {
-    console.warn('[ServerApi] Error clearing server database:', e);
+    console.warn('[ServerApi] Error clearing database:', e);
     return false;
   }
 }
