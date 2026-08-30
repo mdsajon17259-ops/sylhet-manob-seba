@@ -86,10 +86,14 @@ export default function App() {
       try {
         const serverData = await fetchServerDatabase();
         if (serverData && isMounted) {
-          const hasChanged = populateLocalStorageFromServer(serverData);
-          if (hasChanged) {
-            syncAllFromStorage();
-          }
+          populateLocalStorageFromServer(serverData, true);
+          if (serverData.profile) setProfile(serverData.profile);
+          if (Array.isArray(serverData.members)) setMembers(serverData.members);
+          if (Array.isArray(serverData.donors)) setDonors(serverData.donors);
+          if (Array.isArray(serverData.notices)) setNotices(serverData.notices);
+          if (Array.isArray(serverData.funds)) setFunds(serverData.funds);
+          if (serverData.manualTotalBalance !== undefined) setManualTotalBalance(serverData.manualTotalBalance);
+          if (serverData.paymentConfig) setPaymentConfig(serverData.paymentConfig);
         }
       } catch (e) {
         console.warn('Background server sync error:', e);
@@ -99,10 +103,14 @@ export default function App() {
     // 1. Instant Firestore Real-time Listener (Sub-second sync across all members & devices)
     const unsubscribeFirestore = listenToFirestoreAppData((firestoreData) => {
       if (!isMounted || !firestoreData) return;
-      const hasChanged = populateLocalStorageFromServer(firestoreData);
-      if (hasChanged) {
-        syncAllFromStorage();
-      }
+      populateLocalStorageFromServer(firestoreData, true);
+      if (firestoreData.profile) setProfile(firestoreData.profile);
+      if (Array.isArray(firestoreData.members)) setMembers(firestoreData.members);
+      if (Array.isArray(firestoreData.donors)) setDonors(firestoreData.donors);
+      if (Array.isArray(firestoreData.notices)) setNotices(firestoreData.notices);
+      if (Array.isArray(firestoreData.funds)) setFunds(firestoreData.funds);
+      if (firestoreData.manualTotalBalance !== undefined) setManualTotalBalance(firestoreData.manualTotalBalance);
+      if (firestoreData.paymentConfig) setPaymentConfig(firestoreData.paymentConfig);
     });
 
     // 2. Initial instant sync on app launch / page open
@@ -175,16 +183,14 @@ export default function App() {
   useEffect(() => {
     fetchServerDatabase().then((serverData) => {
       if (serverData) {
-        const hasChanged = populateLocalStorageFromServer(serverData);
-        if (hasChanged) {
-          setProfile(loadOrgProfile());
-          setMembers(loadMembers());
-          setDonors(loadDonors());
-          setNotices(loadNotices());
-          setFunds(loadFunds());
-          setManualTotalBalance(loadManualTotalBalance());
-          setPaymentConfig(loadPaymentSettings());
-        }
+        populateLocalStorageFromServer(serverData, true);
+        if (serverData.profile) setProfile(serverData.profile);
+        if (Array.isArray(serverData.members)) setMembers(serverData.members);
+        if (Array.isArray(serverData.donors)) setDonors(serverData.donors);
+        if (Array.isArray(serverData.notices)) setNotices(serverData.notices);
+        if (Array.isArray(serverData.funds)) setFunds(serverData.funds);
+        if (serverData.manualTotalBalance !== undefined) setManualTotalBalance(serverData.manualTotalBalance);
+        if (serverData.paymentConfig) setPaymentConfig(serverData.paymentConfig);
       }
     }).catch(() => {});
   }, [activeScreen]);

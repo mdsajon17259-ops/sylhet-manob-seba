@@ -78,7 +78,6 @@ export function populateLocalStorageFromServer(
     if (Array.isArray(serverDb.members)) {
       const current = localStorage.getItem(STORAGE_KEYS.MEMBERS);
       const currentMembers: Member[] = current ? JSON.parse(current) : [];
-      // Only overwrite if incoming has items OR if allowEmptyOverride is true OR local is already empty
       if (serverDb.members.length > 0 || allowEmptyOverride || currentMembers.length === 0) {
         const incoming = JSON.stringify(serverDb.members);
         if (current !== incoming) {
@@ -205,7 +204,7 @@ export function verifyAdminPin(inputPin: string): boolean {
 export function loadOrgProfile(): OrganizationProfile {
   try {
     const saved = localStorage.getItem(STORAGE_KEYS.PROFILE);
-    if (saved) {
+    if (saved !== null) {
       const parsed: OrganizationProfile = JSON.parse(saved);
       if (!parsed.name || parsed.name === 'মানব সেবা সংগঠন' || parsed.name === 'পতেঙ্গা মানব সেবা সংগঠন' || parsed.name === 'সিলেট মানব সেবা সংঘঠন') {
         parsed.name = 'সিলেট মানব সেবা সংগঠন';
@@ -238,7 +237,7 @@ export function saveOrgProfile(profile: OrganizationProfile): void {
 export function loadMembers(): Member[] {
   try {
     const saved = localStorage.getItem(STORAGE_KEYS.MEMBERS);
-    if (saved) return JSON.parse(saved);
+    if (saved !== null) return JSON.parse(saved);
   } catch (e) {
     console.error('Error loading members', e);
   }
@@ -259,7 +258,7 @@ export function saveMembers(members: Member[]): void {
 export function loadDonors(): BloodDonor[] {
   try {
     const saved = localStorage.getItem(STORAGE_KEYS.DONORS);
-    if (saved) return JSON.parse(saved);
+    if (saved !== null) return JSON.parse(saved);
   } catch (e) {
     console.error('Error loading donors', e);
   }
@@ -280,7 +279,7 @@ export function saveDonors(donors: BloodDonor[]): void {
 export function loadNotices(): Notice[] {
   try {
     const saved = localStorage.getItem(STORAGE_KEYS.NOTICES);
-    if (saved) return JSON.parse(saved);
+    if (saved !== null) return JSON.parse(saved);
   } catch (e) {
     console.error('Error loading notices', e);
   }
@@ -301,7 +300,7 @@ export function saveNotices(notices: Notice[]): void {
 export function loadFunds(): FundRecord[] {
   try {
     const saved = localStorage.getItem(STORAGE_KEYS.FUNDS);
-    if (saved) return JSON.parse(saved);
+    if (saved !== null) return JSON.parse(saved);
   } catch (e) {
     console.error('Error loading funds', e);
   }
