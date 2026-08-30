@@ -33,6 +33,7 @@ import { fetchServerDatabase } from './utils/serverApi';
 import {
   listenToFirestoreAppData,
   fetchFirestoreAppData,
+  ensureFirestoreCollectionsAndSettings,
   saveSingleMemberToFirestore,
   deleteMemberFromFirestore,
   saveSingleDonorToFirestore,
@@ -117,7 +118,17 @@ export default function App() {
       applyFirestoreData(firestoreData);
     });
 
-    // 2. Direct Firestore Fetch on App Startup (Ensures instant restoration even if cache was cleared)
+    // 2. Direct Firestore Fetch & Collection Structure Verification on App Startup
+    ensureFirestoreCollectionsAndSettings()
+      .then((initRes) => {
+        if (initRes.initializedCollections.length > 0 || initRes.initializedDocuments.length > 0) {
+          console.log('[Firestore] Successfully ensured collections/documents:', initRes);
+        }
+      })
+      .catch((initErr) => {
+        console.error('[Firestore ERROR] ensureFirestoreCollectionsAndSettings error:', initErr);
+      });
+
     fetchFirestoreAppData().then((firestoreData) => {
       if (firestoreData) {
         applyFirestoreData(firestoreData);

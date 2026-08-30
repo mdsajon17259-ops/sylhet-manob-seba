@@ -102,10 +102,13 @@ let activeCache: AppFirestoreData = {
  * Save a single member directly to Firestore members collection and mirror in org doc
  */
 export async function saveSingleMemberToFirestore(member: Member, allMembers?: Member[]): Promise<boolean> {
+  const memberDocRef = doc(db, 'members', member.id);
   try {
     const cleanMember = sanitizeForFirestore(member);
-    const mRef = doc(db, 'members', member.id);
-    await setDoc(mRef, cleanMember, { merge: true });
+    console.log('[Firestore] Explicitly saving member to collection("members") -> doc ID:', member.id, cleanMember);
+    
+    await setDoc(memberDocRef, cleanMember, { merge: true });
+    console.log('[Firestore SUCCESS] Successfully saved member to collection("members") -> doc ID:', member.id);
 
     // Update active cache with either provided list or computed list
     if (allMembers && Array.isArray(allMembers)) {
@@ -120,17 +123,28 @@ export async function saveSingleMemberToFirestore(member: Member, allMembers?: M
     }
 
     // Mirror to main org doc
-    await setDoc(
-      ORG_DOC_REF,
-      {
-        members: sanitizeForFirestore(activeCache.members),
-        updatedAt: serverTimestamp()
-      },
-      { merge: true }
-    );
+    try {
+      await setDoc(
+        ORG_DOC_REF,
+        {
+          members: sanitizeForFirestore(activeCache.members),
+          updatedAt: serverTimestamp()
+        },
+        { merge: true }
+      );
+    } catch (mirrorErr: any) {
+      console.warn('[Firestore WARN] Failed to mirror member to org doc (main member doc in "members" collection was saved):', mirrorErr?.message || mirrorErr);
+    }
+
     return true;
-  } catch (e) {
-    console.error('[Firestore] Error saving single member:', e);
+  } catch (e: any) {
+    console.error('[Firestore ERROR] Failed to save member to collection("members") -> doc ID:', member.id, {
+      code: e?.code,
+      message: e?.message,
+      targetCollection: 'members',
+      targetDoc: member.id,
+      error: e
+    });
     return false;
   }
 }
@@ -139,9 +153,11 @@ export async function saveSingleMemberToFirestore(member: Member, allMembers?: M
  * Delete a single member from Firestore members collection and org doc
  */
 export async function deleteMemberFromFirestore(memberId: string, allMembers?: Member[]): Promise<boolean> {
+  const memberDocRef = doc(db, 'members', memberId);
   try {
-    const mRef = doc(db, 'members', memberId);
-    await deleteDoc(mRef);
+    console.log('[Firestore] Explicitly deleting member from collection("members") -> doc ID:', memberId);
+    await deleteDoc(memberDocRef);
+    console.log('[Firestore SUCCESS] Successfully deleted member from collection("members") -> doc ID:', memberId);
 
     // Update active cache
     if (allMembers && Array.isArray(allMembers)) {
@@ -151,17 +167,26 @@ export async function deleteMemberFromFirestore(memberId: string, allMembers?: M
     }
 
     // Mirror to main org doc
-    await setDoc(
-      ORG_DOC_REF,
-      {
-        members: sanitizeForFirestore(activeCache.members),
-        updatedAt: serverTimestamp()
-      },
-      { merge: true }
-    );
+    try {
+      await setDoc(
+        ORG_DOC_REF,
+        {
+          members: sanitizeForFirestore(activeCache.members),
+          updatedAt: serverTimestamp()
+        },
+        { merge: true }
+      );
+    } catch (mirrorErr) {}
+
     return true;
-  } catch (e) {
-    console.error('[Firestore] Error deleting single member:', e);
+  } catch (e: any) {
+    console.error('[Firestore ERROR] Failed to delete member from collection("members") -> doc ID:', memberId, {
+      code: e?.code,
+      message: e?.message,
+      targetCollection: 'members',
+      targetDoc: memberId,
+      error: e
+    });
     return false;
   }
 }
@@ -962,23 +987,288 @@ export async function clearFirestoreData(): Promise<boolean> {
 }
 
 /**
- * Save Organization Profile to Firestore
+ * Explicit helper that verifies if essential collections ('members', 'donors', 'notices', 'funds')
+ * and setting documents ('settings/payment', 'settings/profile', 'settings/admin') exist in Firestore.
+ * If any are missing or empty, it automatically bootstraps and creates them with default structures.
  */
-export async function saveOrgProfileToFirestore(profile: OrganizationProfile): Promise<boolean> {
-  return updateFirestoreKey('profile', profile);
+export async function ensureFirestoreCollectionsAndSettings(): Promise<{
+  success: boolean;
+  initializedCollections: string[];
+  initializedDocuments: string[];
+  errors: string[];
+}> {
+  const result = {
+    success: true,
+    initializedCollections: [] as string[],
+    initializedDocuments: [] as string[],
+    errors: [] as string[]
+  };
+
+  console.log('[Firestore Bootstrap] Starting verification of collections and documents...');
+
+  // 1. Check and initialize doc(db, 'settings', 'payment')
+  try {
+    const paySnap = await getDoc(PAYMENT_SETTINGS_REF);
+    if (!paySnap.exists() || !paySnap.data()?.bkashNumber) {
+      console.log('[Firestore Bootstrap] doc(settings, payment) missing. Initializing...');
+      const cleanPay = sanitizeForFirestore(DEFAULT_APP_DATA.paymentConfig);
+      await setDoc(PAYMENT_SETTINGS_REF, {
+        ...cleanPay,
+        updatedAt: serverTimestamp(),
+        initializedAt: serverTimestamp()
+      }, { merge: true });
+      result.initializedDocuments.push('settings/payment');
+      console.log('[Firestore SUCCESS] Initialized doc(settings, payment)');
+    } else {
+      console.log('[Firestore] doc(settings, payment) is verified present.');
+    }
+  } catch (err: any) {
+    const errText = `Failed checking/creating doc(settings, payment): ${err?.message || err}`;
+    console.error(`[Firestore ERROR] ${errText}`, { code: err?.code, error: err });
+    result.errors.push(errText);
+    result.success = false;
+  }
+
+  // 2. Check and initialize doc(db, 'settings', 'profile')
+  try {
+    const profSnap = await getDoc(PROFILE_SETTINGS_REF);
+    if (!profSnap.exists() || !profSnap.data()?.name) {
+      console.log('[Firestore Bootstrap] doc(settings, profile) missing. Initializing...');
+      const cleanProfile = sanitizeForFirestore(DEFAULT_APP_DATA.profile);
+      await setDoc(PROFILE_SETTINGS_REF, {
+        ...cleanProfile,
+        updatedAt: serverTimestamp(),
+        initializedAt: serverTimestamp()
+      }, { merge: true });
+      result.initializedDocuments.push('settings/profile');
+      console.log('[Firestore SUCCESS] Initialized doc(settings, profile)');
+    } else {
+      console.log('[Firestore] doc(settings, profile) is verified present.');
+    }
+  } catch (err: any) {
+    const errText = `Failed checking/creating doc(settings, profile): ${err?.message || err}`;
+    console.error(`[Firestore ERROR] ${errText}`, { code: err?.code, error: err });
+    result.errors.push(errText);
+    result.success = false;
+  }
+
+  // 3. Check and initialize doc(db, 'settings', 'admin')
+  try {
+    const adminSnap = await getDoc(ADMIN_SETTINGS_REF);
+    if (!adminSnap.exists()) {
+      console.log('[Firestore Bootstrap] doc(settings, admin) missing. Initializing...');
+      await setDoc(ADMIN_SETTINGS_REF, {
+        adminPin: '1234',
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      result.initializedDocuments.push('settings/admin');
+      console.log('[Firestore SUCCESS] Initialized doc(settings, admin)');
+    }
+  } catch (err: any) {
+    console.warn('[Firestore] Error on admin settings init:', err);
+  }
+
+  // 4. Check and initialize collection(db, 'members')
+  try {
+    const memSnap = await getDocs(MEMBERS_COLLECTION);
+    if (memSnap.empty) {
+      console.log('[Firestore Bootstrap] collection("members") is empty. Bootstrapping initial members...');
+      const batch = writeBatch(db);
+      DEFAULT_APP_DATA.members.forEach((m) => {
+        const mRef = doc(db, 'members', m.id);
+        batch.set(mRef, sanitizeForFirestore(m));
+      });
+      await batch.commit();
+      result.initializedCollections.push('members');
+      console.log(`[Firestore SUCCESS] Initialized collection("members") with ${DEFAULT_APP_DATA.members.length} members`);
+    } else {
+      console.log(`[Firestore] collection("members") is present with ${memSnap.size} documents.`);
+    }
+  } catch (err: any) {
+    const errText = `Failed checking/initializing collection("members"): ${err?.message || err}`;
+    console.error(`[Firestore ERROR] ${errText}`, { code: err?.code, error: err });
+    result.errors.push(errText);
+    result.success = false;
+  }
+
+  // 5. Check and initialize collection(db, 'donors')
+  try {
+    const donorSnap = await getDocs(DONORS_COLLECTION);
+    if (donorSnap.empty) {
+      console.log('[Firestore Bootstrap] collection("donors") is empty. Bootstrapping initial donors...');
+      const batch = writeBatch(db);
+      DEFAULT_APP_DATA.donors.forEach((d) => {
+        const dRef = doc(db, 'donors', d.id);
+        batch.set(dRef, sanitizeForFirestore(d));
+      });
+      await batch.commit();
+      result.initializedCollections.push('donors');
+      console.log(`[Firestore SUCCESS] Initialized collection("donors") with ${DEFAULT_APP_DATA.donors.length} donors`);
+    }
+  } catch (err: any) {
+    console.warn('[Firestore] Error checking donors collection:', err);
+  }
+
+  // 6. Check and initialize collection(db, 'notices')
+  try {
+    const noticeSnap = await getDocs(NOTICES_COLLECTION);
+    if (noticeSnap.empty) {
+      console.log('[Firestore Bootstrap] collection("notices") is empty. Bootstrapping initial notices...');
+      const batch = writeBatch(db);
+      DEFAULT_APP_DATA.notices.forEach((n) => {
+        const nRef = doc(db, 'notices', n.id);
+        batch.set(nRef, sanitizeForFirestore(n));
+      });
+      await batch.commit();
+      result.initializedCollections.push('notices');
+      console.log(`[Firestore SUCCESS] Initialized collection("notices") with ${DEFAULT_APP_DATA.notices.length} notices`);
+    }
+  } catch (err: any) {
+    console.warn('[Firestore] Error checking notices collection:', err);
+  }
+
+  // 7. Check and initialize collection(db, 'funds')
+  try {
+    const fundSnap = await getDocs(FUNDS_COLLECTION);
+    if (fundSnap.empty) {
+      console.log('[Firestore Bootstrap] collection("funds") is empty. Bootstrapping initial funds...');
+      const batch = writeBatch(db);
+      DEFAULT_APP_DATA.funds.forEach((f) => {
+        const fRef = doc(db, 'funds', f.id);
+        batch.set(fRef, sanitizeForFirestore(f));
+      });
+      await batch.commit();
+      result.initializedCollections.push('funds');
+      console.log(`[Firestore SUCCESS] Initialized collection("funds") with ${DEFAULT_APP_DATA.funds.length} fund records`);
+    }
+  } catch (err: any) {
+    console.warn('[Firestore] Error checking funds collection:', err);
+  }
+
+  // 8. Ensure root organization document exists for legacy/mirror fallback
+  try {
+    const orgSnap = await getDoc(ORG_DOC_REF);
+    if (!orgSnap.exists()) {
+      console.log('[Firestore Bootstrap] doc(organizations, sylhetmanobseba) missing. Initializing...');
+      await setDoc(ORG_DOC_REF, {
+        profile: sanitizeForFirestore(DEFAULT_APP_DATA.profile),
+        paymentConfig: sanitizeForFirestore(DEFAULT_APP_DATA.paymentConfig),
+        adminPin: DEFAULT_APP_DATA.adminPin,
+        manualTotalBalance: null,
+        members: sanitizeForFirestore(DEFAULT_APP_DATA.members),
+        donors: sanitizeForFirestore(DEFAULT_APP_DATA.donors),
+        notices: sanitizeForFirestore(DEFAULT_APP_DATA.notices),
+        funds: sanitizeForFirestore(DEFAULT_APP_DATA.funds),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      result.initializedDocuments.push('organizations/sylhetmanobseba');
+    }
+  } catch (err: any) {
+    console.warn('[Firestore] Error checking org doc:', err);
+  }
+
+  console.log('[Firestore Bootstrap] Verification complete:', result);
+  return result;
 }
 
 /**
- * Save Payment Gateway Config to Firestore
+ * Save Organization Profile to Firestore with direct document target and error handling
+ */
+export async function saveOrgProfileToFirestore(profile: OrganizationProfile): Promise<boolean> {
+  try {
+    const cleanProfile = sanitizeForFirestore(profile);
+    console.log('[Firestore] Explicitly saving profile to doc("settings", "profile") ->', cleanProfile);
+    
+    // Save to dedicated settings doc
+    await setDoc(PROFILE_SETTINGS_REF, {
+      ...cleanProfile,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    
+    console.log('[Firestore SUCCESS] Successfully saved profile to doc("settings", "profile")');
+
+    // Also mirror to main org doc
+    try {
+      await setDoc(ORG_DOC_REF, {
+        profile: cleanProfile,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (mirrorErr: any) {
+      console.warn('[Firestore WARN] Profile mirror error:', mirrorErr?.message || mirrorErr);
+    }
+
+    activeCache.profile = profile;
+    return true;
+  } catch (err: any) {
+    console.error('[Firestore ERROR] Failed to save profile to doc("settings", "profile"):', {
+      code: err?.code,
+      message: err?.message,
+      targetDoc: 'settings/profile',
+      error: err
+    });
+    return false;
+  }
+}
+
+/**
+ * Save Payment Gateway Config to Firestore with direct document target doc("settings", "payment") and error handling
  */
 export async function savePaymentConfigToFirestore(paymentConfig: PaymentGatewayConfig): Promise<boolean> {
-  return updateFirestoreKey('paymentConfig', paymentConfig);
+  try {
+    const cleanPayment = sanitizeForFirestore(paymentConfig);
+    console.log('[Firestore] Explicitly saving payment config to doc("settings", "payment") ->', cleanPayment);
+
+    // Save directly to dedicated document: doc(db, 'settings', 'payment')
+    await setDoc(PAYMENT_SETTINGS_REF, {
+      ...cleanPayment,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    console.log('[Firestore SUCCESS] Successfully saved payment config to doc("settings", "payment")');
+
+    // Also mirror to main org doc
+    try {
+      await setDoc(ORG_DOC_REF, {
+        paymentConfig: cleanPayment,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (mirrorErr: any) {
+      console.warn('[Firestore WARN] Payment config mirror error:', mirrorErr?.message || mirrorErr);
+    }
+
+    activeCache.paymentConfig = paymentConfig;
+    return true;
+  } catch (err: any) {
+    console.error('[Firestore ERROR] Failed to save payment settings to doc("settings", "payment"):', {
+      code: err?.code,
+      message: err?.message,
+      targetDoc: 'settings/payment',
+      error: err
+    });
+    return false;
+  }
 }
 
 /**
  * Save Manual Total Balance to Firestore
  */
 export async function saveManualTotalBalanceToFirestore(manualTotalBalance: number | null): Promise<boolean> {
-  return updateFirestoreKey('manualTotalBalance', manualTotalBalance);
+  try {
+    console.log('[Firestore] Explicitly saving manual total balance:', manualTotalBalance);
+    await setDoc(ORG_DOC_REF, {
+      manualTotalBalance,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    activeCache.manualTotalBalance = manualTotalBalance;
+    console.log('[Firestore SUCCESS] Successfully updated manualTotalBalance in Firestore');
+    return true;
+  } catch (err: any) {
+    console.error('[Firestore ERROR] Failed to save manualTotalBalance:', {
+      code: err?.code,
+      message: err?.message,
+      error: err
+    });
+    return false;
+  }
 }
 
