@@ -96,18 +96,22 @@ let activeCache: AppFirestoreData = {
 /**
  * Save a single member directly to Firestore members collection and mirror in org doc
  */
-export async function saveSingleMemberToFirestore(member: Member): Promise<boolean> {
+export async function saveSingleMemberToFirestore(member: Member, allMembers?: Member[]): Promise<boolean> {
   try {
     const cleanMember = sanitizeForFirestore(member);
     const mRef = doc(db, 'members', member.id);
     await setDoc(mRef, cleanMember, { merge: true });
 
-    // Update active cache
-    const existingIndex = activeCache.members.findIndex((m) => m.id === member.id);
-    if (existingIndex >= 0) {
-      activeCache.members[existingIndex] = member;
+    // Update active cache with either provided list or computed list
+    if (allMembers && Array.isArray(allMembers)) {
+      activeCache.members = allMembers;
     } else {
-      activeCache.members = [member, ...activeCache.members];
+      const existingIndex = activeCache.members.findIndex((m) => m.id === member.id);
+      if (existingIndex >= 0) {
+        activeCache.members[existingIndex] = member;
+      } else {
+        activeCache.members = [member, ...activeCache.members.filter(m => m.id !== member.id)];
+      }
     }
 
     // Mirror to main org doc
@@ -129,13 +133,17 @@ export async function saveSingleMemberToFirestore(member: Member): Promise<boole
 /**
  * Delete a single member from Firestore members collection and org doc
  */
-export async function deleteMemberFromFirestore(memberId: string): Promise<boolean> {
+export async function deleteMemberFromFirestore(memberId: string, allMembers?: Member[]): Promise<boolean> {
   try {
     const mRef = doc(db, 'members', memberId);
     await deleteDoc(mRef);
 
     // Update active cache
-    activeCache.members = activeCache.members.filter((m) => m.id !== memberId);
+    if (allMembers && Array.isArray(allMembers)) {
+      activeCache.members = allMembers;
+    } else {
+      activeCache.members = activeCache.members.filter((m) => m.id !== memberId);
+    }
 
     // Mirror to main org doc
     await setDoc(
@@ -156,17 +164,21 @@ export async function deleteMemberFromFirestore(memberId: string): Promise<boole
 /**
  * Save a single blood donor to Firestore donors collection
  */
-export async function saveSingleDonorToFirestore(donor: BloodDonor): Promise<boolean> {
+export async function saveSingleDonorToFirestore(donor: BloodDonor, allDonors?: BloodDonor[]): Promise<boolean> {
   try {
     const cleanDonor = sanitizeForFirestore(donor);
     const dRef = doc(db, 'donors', donor.id);
     await setDoc(dRef, cleanDonor, { merge: true });
 
-    const existingIndex = activeCache.donors.findIndex((d) => d.id === donor.id);
-    if (existingIndex >= 0) {
-      activeCache.donors[existingIndex] = donor;
+    if (allDonors && Array.isArray(allDonors)) {
+      activeCache.donors = allDonors;
     } else {
-      activeCache.donors = [donor, ...activeCache.donors];
+      const existingIndex = activeCache.donors.findIndex((d) => d.id === donor.id);
+      if (existingIndex >= 0) {
+        activeCache.donors[existingIndex] = donor;
+      } else {
+        activeCache.donors = [donor, ...activeCache.donors.filter(d => d.id !== donor.id)];
+      }
     }
 
     await setDoc(
@@ -187,12 +199,16 @@ export async function saveSingleDonorToFirestore(donor: BloodDonor): Promise<boo
 /**
  * Delete a single donor from Firestore
  */
-export async function deleteDonorFromFirestore(donorId: string): Promise<boolean> {
+export async function deleteDonorFromFirestore(donorId: string, allDonors?: BloodDonor[]): Promise<boolean> {
   try {
     const dRef = doc(db, 'donors', donorId);
     await deleteDoc(dRef);
 
-    activeCache.donors = activeCache.donors.filter((d) => d.id !== donorId);
+    if (allDonors && Array.isArray(allDonors)) {
+      activeCache.donors = allDonors;
+    } else {
+      activeCache.donors = activeCache.donors.filter((d) => d.id !== donorId);
+    }
 
     await setDoc(
       ORG_DOC_REF,
@@ -212,17 +228,21 @@ export async function deleteDonorFromFirestore(donorId: string): Promise<boolean
 /**
  * Save a single notice to Firestore
  */
-export async function saveSingleNoticeToFirestore(notice: Notice): Promise<boolean> {
+export async function saveSingleNoticeToFirestore(notice: Notice, allNotices?: Notice[]): Promise<boolean> {
   try {
     const cleanNotice = sanitizeForFirestore(notice);
     const nRef = doc(db, 'notices', notice.id);
     await setDoc(nRef, cleanNotice, { merge: true });
 
-    const existingIndex = activeCache.notices.findIndex((n) => n.id === notice.id);
-    if (existingIndex >= 0) {
-      activeCache.notices[existingIndex] = notice;
+    if (allNotices && Array.isArray(allNotices)) {
+      activeCache.notices = allNotices;
     } else {
-      activeCache.notices = [notice, ...activeCache.notices];
+      const existingIndex = activeCache.notices.findIndex((n) => n.id === notice.id);
+      if (existingIndex >= 0) {
+        activeCache.notices[existingIndex] = notice;
+      } else {
+        activeCache.notices = [notice, ...activeCache.notices.filter(n => n.id !== notice.id)];
+      }
     }
 
     await setDoc(
@@ -243,12 +263,16 @@ export async function saveSingleNoticeToFirestore(notice: Notice): Promise<boole
 /**
  * Delete a single notice from Firestore
  */
-export async function deleteNoticeFromFirestore(noticeId: string): Promise<boolean> {
+export async function deleteNoticeFromFirestore(noticeId: string, allNotices?: Notice[]): Promise<boolean> {
   try {
     const nRef = doc(db, 'notices', noticeId);
     await deleteDoc(nRef);
 
-    activeCache.notices = activeCache.notices.filter((n) => n.id !== noticeId);
+    if (allNotices && Array.isArray(allNotices)) {
+      activeCache.notices = allNotices;
+    } else {
+      activeCache.notices = activeCache.notices.filter((n) => n.id !== noticeId);
+    }
 
     await setDoc(
       ORG_DOC_REF,
@@ -268,17 +292,21 @@ export async function deleteNoticeFromFirestore(noticeId: string): Promise<boole
 /**
  * Save a single fund record to Firestore
  */
-export async function saveSingleFundToFirestore(fund: FundRecord): Promise<boolean> {
+export async function saveSingleFundToFirestore(fund: FundRecord, allFunds?: FundRecord[]): Promise<boolean> {
   try {
     const cleanFund = sanitizeForFirestore(fund);
     const fRef = doc(db, 'funds', fund.id);
     await setDoc(fRef, cleanFund, { merge: true });
 
-    const existingIndex = activeCache.funds.findIndex((f) => f.id === fund.id);
-    if (existingIndex >= 0) {
-      activeCache.funds[existingIndex] = fund;
+    if (allFunds && Array.isArray(allFunds)) {
+      activeCache.funds = allFunds;
     } else {
-      activeCache.funds = [fund, ...activeCache.funds];
+      const existingIndex = activeCache.funds.findIndex((f) => f.id === fund.id);
+      if (existingIndex >= 0) {
+        activeCache.funds[existingIndex] = fund;
+      } else {
+        activeCache.funds = [fund, ...activeCache.funds.filter(f => f.id !== fund.id)];
+      }
     }
 
     await setDoc(
@@ -299,12 +327,16 @@ export async function saveSingleFundToFirestore(fund: FundRecord): Promise<boole
 /**
  * Delete a single fund record from Firestore
  */
-export async function deleteFundFromFirestore(fundId: string): Promise<boolean> {
+export async function deleteFundFromFirestore(fundId: string, allFunds?: FundRecord[]): Promise<boolean> {
   try {
     const fRef = doc(db, 'funds', fundId);
     await deleteDoc(fRef);
 
-    activeCache.funds = activeCache.funds.filter((f) => f.id !== fundId);
+    if (allFunds && Array.isArray(allFunds)) {
+      activeCache.funds = allFunds;
+    } else {
+      activeCache.funds = activeCache.funds.filter((f) => f.id !== fundId);
+    }
 
     await setDoc(
       ORG_DOC_REF,
@@ -637,7 +669,10 @@ export function listenToFirestoreAppData(
               id: data.id || d.id
             } as Member;
           });
-          activeCache.members = colMembers;
+          const memberMap = new Map<string, Member>();
+          activeCache.members.forEach((m) => { if (m && m.id) memberMap.set(m.id, m); });
+          colMembers.forEach((m) => { if (m && m.id) memberMap.set(m.id, m); });
+          activeCache.members = Array.from(memberMap.values());
           broadcastCurrentCache();
         }
       },
@@ -660,7 +695,10 @@ export function listenToFirestoreAppData(
               id: data.id || d.id
             } as BloodDonor;
           });
-          activeCache.donors = colDonors;
+          const donorMap = new Map<string, BloodDonor>();
+          activeCache.donors.forEach((d) => { if (d && d.id) donorMap.set(d.id, d); });
+          colDonors.forEach((d) => { if (d && d.id) donorMap.set(d.id, d); });
+          activeCache.donors = Array.from(donorMap.values());
           broadcastCurrentCache();
         }
       },
@@ -682,7 +720,10 @@ export function listenToFirestoreAppData(
               id: data.id || d.id
             } as Notice;
           });
-          activeCache.notices = colNotices;
+          const noticeMap = new Map<string, Notice>();
+          activeCache.notices.forEach((n) => { if (n && n.id) noticeMap.set(n.id, n); });
+          colNotices.forEach((n) => { if (n && n.id) noticeMap.set(n.id, n); });
+          activeCache.notices = Array.from(noticeMap.values());
           broadcastCurrentCache();
         }
       },
@@ -704,7 +745,10 @@ export function listenToFirestoreAppData(
               id: data.id || d.id
             } as FundRecord;
           });
-          activeCache.funds = colFunds;
+          const fundMap = new Map<string, FundRecord>();
+          activeCache.funds.forEach((f) => { if (f && f.id) fundMap.set(f.id, f); });
+          colFunds.forEach((f) => { if (f && f.id) fundMap.set(f.id, f); });
+          activeCache.funds = Array.from(fundMap.values());
           broadcastCurrentCache();
         }
       },
@@ -732,17 +776,29 @@ export function listenToFirestoreAppData(
           if (raw.manualTotalBalance !== undefined) {
             activeCache.manualTotalBalance = raw.manualTotalBalance;
           }
-          if (activeCache.members.length === 0 && Array.isArray(raw.members) && raw.members.length > 0) {
-            activeCache.members = raw.members;
+          if (Array.isArray(raw.members) && raw.members.length > 0) {
+            const memberMap = new Map<string, Member>();
+            activeCache.members.forEach((m) => { if (m && m.id) memberMap.set(m.id, m); });
+            raw.members.forEach((m) => { if (m && m.id) memberMap.set(m.id, m); });
+            activeCache.members = Array.from(memberMap.values());
           }
-          if (activeCache.donors.length === 0 && Array.isArray(raw.donors) && raw.donors.length > 0) {
-            activeCache.donors = raw.donors;
+          if (Array.isArray(raw.donors) && raw.donors.length > 0) {
+            const donorMap = new Map<string, BloodDonor>();
+            activeCache.donors.forEach((d) => { if (d && d.id) donorMap.set(d.id, d); });
+            raw.donors.forEach((d) => { if (d && d.id) donorMap.set(d.id, d); });
+            activeCache.donors = Array.from(donorMap.values());
           }
-          if (activeCache.notices.length === 0 && Array.isArray(raw.notices) && raw.notices.length > 0) {
-            activeCache.notices = raw.notices;
+          if (Array.isArray(raw.notices) && raw.notices.length > 0) {
+            const noticeMap = new Map<string, Notice>();
+            activeCache.notices.forEach((n) => { if (n && n.id) noticeMap.set(n.id, n); });
+            raw.notices.forEach((n) => { if (n && n.id) noticeMap.set(n.id, n); });
+            activeCache.notices = Array.from(noticeMap.values());
           }
-          if (activeCache.funds.length === 0 && Array.isArray(raw.funds) && raw.funds.length > 0) {
-            activeCache.funds = raw.funds;
+          if (Array.isArray(raw.funds) && raw.funds.length > 0) {
+            const fundMap = new Map<string, FundRecord>();
+            activeCache.funds.forEach((f) => { if (f && f.id) fundMap.set(f.id, f); });
+            raw.funds.forEach((f) => { if (f && f.id) fundMap.set(f.id, f); });
+            activeCache.funds = Array.from(fundMap.values());
           }
           broadcastCurrentCache();
         }

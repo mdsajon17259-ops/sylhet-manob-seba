@@ -100,12 +100,40 @@ export default function App() {
       try {
         const serverData = await fetchServerDatabase();
         if (serverData && isMounted) {
-          populateLocalStorageFromServer(serverData, true);
+          populateLocalStorageFromServer(serverData, false);
           if (serverData.profile) setProfile(serverData.profile);
-          if (Array.isArray(serverData.members)) setMembers(serverData.members);
-          if (Array.isArray(serverData.donors)) setDonors(serverData.donors);
-          if (Array.isArray(serverData.notices)) setNotices(serverData.notices);
-          if (Array.isArray(serverData.funds)) setFunds(serverData.funds);
+          if (Array.isArray(serverData.members) && serverData.members.length > 0) {
+            setMembers(prev => {
+              const map = new Map<string, Member>();
+              prev.forEach(m => { if (m && m.id) map.set(m.id, m); });
+              serverData.members!.forEach(m => { if (m && m.id) map.set(m.id, m); });
+              return Array.from(map.values());
+            });
+          }
+          if (Array.isArray(serverData.donors) && serverData.donors.length > 0) {
+            setDonors(prev => {
+              const map = new Map<string, BloodDonor>();
+              prev.forEach(d => { if (d && d.id) map.set(d.id, d); });
+              serverData.donors!.forEach(d => { if (d && d.id) map.set(d.id, d); });
+              return Array.from(map.values());
+            });
+          }
+          if (Array.isArray(serverData.notices) && serverData.notices.length > 0) {
+            setNotices(prev => {
+              const map = new Map<string, Notice>();
+              prev.forEach(n => { if (n && n.id) map.set(n.id, n); });
+              serverData.notices!.forEach(n => { if (n && n.id) map.set(n.id, n); });
+              return Array.from(map.values());
+            });
+          }
+          if (Array.isArray(serverData.funds) && serverData.funds.length > 0) {
+            setFunds(prev => {
+              const map = new Map<string, FundRecord>();
+              prev.forEach(f => { if (f && f.id) map.set(f.id, f); });
+              serverData.funds!.forEach(f => { if (f && f.id) map.set(f.id, f); });
+              return Array.from(map.values());
+            });
+          }
           if (serverData.manualTotalBalance !== undefined) setManualTotalBalance(serverData.manualTotalBalance);
           if (serverData.paymentConfig) setPaymentConfig(serverData.paymentConfig);
         }
@@ -117,12 +145,40 @@ export default function App() {
     // 1. Instant Firestore Real-time Listener (Sub-second sync across all members & devices)
     const unsubscribeFirestore = listenToFirestoreAppData((firestoreData) => {
       if (!isMounted || !firestoreData) return;
-      populateLocalStorageFromServer(firestoreData, true);
+      populateLocalStorageFromServer(firestoreData, false);
       if (firestoreData.profile) setProfile(firestoreData.profile);
-      if (Array.isArray(firestoreData.members)) setMembers(firestoreData.members);
-      if (Array.isArray(firestoreData.donors)) setDonors(firestoreData.donors);
-      if (Array.isArray(firestoreData.notices)) setNotices(firestoreData.notices);
-      if (Array.isArray(firestoreData.funds)) setFunds(firestoreData.funds);
+      if (Array.isArray(firestoreData.members) && firestoreData.members.length > 0) {
+        setMembers(prev => {
+          const map = new Map<string, Member>();
+          prev.forEach(m => { if (m && m.id) map.set(m.id, m); });
+          firestoreData.members.forEach(m => { if (m && m.id) map.set(m.id, m); });
+          return Array.from(map.values());
+        });
+      }
+      if (Array.isArray(firestoreData.donors) && firestoreData.donors.length > 0) {
+        setDonors(prev => {
+          const map = new Map<string, BloodDonor>();
+          prev.forEach(d => { if (d && d.id) map.set(d.id, d); });
+          firestoreData.donors.forEach(d => { if (d && d.id) map.set(d.id, d); });
+          return Array.from(map.values());
+        });
+      }
+      if (Array.isArray(firestoreData.notices) && firestoreData.notices.length > 0) {
+        setNotices(prev => {
+          const map = new Map<string, Notice>();
+          prev.forEach(n => { if (n && n.id) map.set(n.id, n); });
+          firestoreData.notices.forEach(n => { if (n && n.id) map.set(n.id, n); });
+          return Array.from(map.values());
+        });
+      }
+      if (Array.isArray(firestoreData.funds) && firestoreData.funds.length > 0) {
+        setFunds(prev => {
+          const map = new Map<string, FundRecord>();
+          prev.forEach(f => { if (f && f.id) map.set(f.id, f); });
+          firestoreData.funds.forEach(f => { if (f && f.id) map.set(f.id, f); });
+          return Array.from(map.values());
+        });
+      }
       if (firestoreData.manualTotalBalance !== undefined) setManualTotalBalance(firestoreData.manualTotalBalance);
       if (firestoreData.paymentConfig) setPaymentConfig(firestoreData.paymentConfig);
     });
@@ -140,10 +196,8 @@ export default function App() {
 
     // 4. Cross-tab storage event
     window.addEventListener('storage', syncAllFromStorage);
-    // 5. In-app custom sync event
-    window.addEventListener('pms_data_updated', syncAllFromStorage);
     
-    // 6. Tab visibility / Focus event & Network reconnect
+    // 5. Tab visibility / Focus event & Network reconnect
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         syncAllFromStorage();
@@ -162,7 +216,7 @@ export default function App() {
     window.addEventListener('online', handleOnline);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // 7. BroadcastChannel support for modern browsers
+    // 6. BroadcastChannel support for modern browsers
     let bc: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== 'undefined') {
       try {
@@ -183,7 +237,6 @@ export default function App() {
       unsubscribeFirestore();
       clearInterval(autoSyncInterval);
       window.removeEventListener('storage', syncAllFromStorage);
-      window.removeEventListener('pms_data_updated', syncAllFromStorage);
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('online', handleOnline);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -197,12 +250,40 @@ export default function App() {
   useEffect(() => {
     fetchServerDatabase().then((serverData) => {
       if (serverData) {
-        populateLocalStorageFromServer(serverData, true);
+        populateLocalStorageFromServer(serverData, false);
         if (serverData.profile) setProfile(serverData.profile);
-        if (Array.isArray(serverData.members)) setMembers(serverData.members);
-        if (Array.isArray(serverData.donors)) setDonors(serverData.donors);
-        if (Array.isArray(serverData.notices)) setNotices(serverData.notices);
-        if (Array.isArray(serverData.funds)) setFunds(serverData.funds);
+        if (Array.isArray(serverData.members) && serverData.members.length > 0) {
+          setMembers(prev => {
+            const map = new Map<string, Member>();
+            prev.forEach(m => { if (m && m.id) map.set(m.id, m); });
+            serverData.members!.forEach(m => { if (m && m.id) map.set(m.id, m); });
+            return Array.from(map.values());
+          });
+        }
+        if (Array.isArray(serverData.donors) && serverData.donors.length > 0) {
+          setDonors(prev => {
+            const map = new Map<string, BloodDonor>();
+            prev.forEach(d => { if (d && d.id) map.set(d.id, d); });
+            serverData.donors!.forEach(d => { if (d && d.id) map.set(d.id, d); });
+            return Array.from(map.values());
+          });
+        }
+        if (Array.isArray(serverData.notices) && serverData.notices.length > 0) {
+          setNotices(prev => {
+            const map = new Map<string, Notice>();
+            prev.forEach(n => { if (n && n.id) map.set(n.id, n); });
+            serverData.notices!.forEach(n => { if (n && n.id) map.set(n.id, n); });
+            return Array.from(map.values());
+          });
+        }
+        if (Array.isArray(serverData.funds) && serverData.funds.length > 0) {
+          setFunds(prev => {
+            const map = new Map<string, FundRecord>();
+            prev.forEach(f => { if (f && f.id) map.set(f.id, f); });
+            serverData.funds!.forEach(f => { if (f && f.id) map.set(f.id, f); });
+            return Array.from(map.values());
+          });
+        }
         if (serverData.manualTotalBalance !== undefined) setManualTotalBalance(serverData.manualTotalBalance);
         if (serverData.paymentConfig) setPaymentConfig(serverData.paymentConfig);
       }
@@ -223,33 +304,31 @@ export default function App() {
 
   // Member Handlers
   const handleAddMember = async (newMember: Omit<Member, 'id'>) => {
+    const memberId = `m-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const member: Member = {
       ...newMember,
-      id: `m-${Date.now()}`
+      id: memberId
     };
+    
     setMembers(prev => {
-      const updated = [member, ...prev];
+      const updated = [member, ...prev.filter(m => m.id !== member.id)];
       saveMembers(updated);
+      saveSingleMemberToFirestore(member, updated).catch((e) => {
+        console.warn('[Firestore] Error saving member:', e);
+      });
       return updated;
     });
-    try {
-      await saveSingleMemberToFirestore(member);
-    } catch (e) {
-      console.warn('[Firestore] Error saving member:', e);
-    }
   };
 
   const handleEditMember = async (updatedMember: Member) => {
     setMembers(prev => {
       const updated = prev.map(m => m.id === updatedMember.id ? updatedMember : m);
       saveMembers(updated);
+      saveSingleMemberToFirestore(updatedMember, updated).catch((e) => {
+        console.warn('[Firestore] Error updating member:', e);
+      });
       return updated;
     });
-    try {
-      await saveSingleMemberToFirestore(updatedMember);
-    } catch (e) {
-      console.warn('[Firestore] Error updating member:', e);
-    }
   };
 
   const handleDeleteMember = async (id: string, name: string) => {
@@ -257,45 +336,40 @@ export default function App() {
       setMembers(prev => {
         const updated = prev.filter(m => m.id !== id);
         saveMembers(updated);
+        deleteMemberFromFirestore(id, updated).catch((e) => {
+          console.warn('[Firestore] Error deleting member:', e);
+        });
         return updated;
       });
-      try {
-        await deleteMemberFromFirestore(id);
-      } catch (e) {
-        console.warn('[Firestore] Error deleting member:', e);
-      }
     }
   };
 
   // Donor Handlers
   const handleAddDonor = async (newDonor: Omit<BloodDonor, 'id'>) => {
+    const donorId = `d-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const donor: BloodDonor = {
       ...newDonor,
-      id: `d-${Date.now()}`
+      id: donorId
     };
     setDonors(prev => {
-      const updated = [donor, ...prev];
+      const updated = [donor, ...prev.filter(d => d.id !== donor.id)];
       saveDonors(updated);
+      saveSingleDonorToFirestore(donor, updated).catch((e) => {
+        console.warn('[Firestore] Error saving donor:', e);
+      });
       return updated;
     });
-    try {
-      await saveSingleDonorToFirestore(donor);
-    } catch (e) {
-      console.warn('[Firestore] Error saving donor:', e);
-    }
   };
 
   const handleEditDonor = async (updatedDonor: BloodDonor) => {
     setDonors(prev => {
       const updated = prev.map(d => d.id === updatedDonor.id ? updatedDonor : d);
       saveDonors(updated);
+      saveSingleDonorToFirestore(updatedDonor, updated).catch((e) => {
+        console.warn('[Firestore] Error updating donor:', e);
+      });
       return updated;
     });
-    try {
-      await saveSingleDonorToFirestore(updatedDonor);
-    } catch (e) {
-      console.warn('[Firestore] Error updating donor:', e);
-    }
   };
 
   const handleDeleteDonor = async (id: string, name: string) => {
@@ -303,45 +377,40 @@ export default function App() {
       setDonors(prev => {
         const updated = prev.filter(d => d.id !== id);
         saveDonors(updated);
+        deleteDonorFromFirestore(id, updated).catch((e) => {
+          console.warn('[Firestore] Error deleting donor:', e);
+        });
         return updated;
       });
-      try {
-        await deleteDonorFromFirestore(id);
-      } catch (e) {
-        console.warn('[Firestore] Error deleting donor:', e);
-      }
     }
   };
 
   // Notice Handlers
   const handleAddNotice = async (newNotice: Omit<Notice, 'id'>) => {
+    const noticeId = `n-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const notice: Notice = {
       ...newNotice,
-      id: `n-${Date.now()}`
+      id: noticeId
     };
     setNotices(prev => {
-      const updated = [notice, ...prev];
+      const updated = [notice, ...prev.filter(n => n.id !== notice.id)];
       saveNotices(updated);
+      saveSingleNoticeToFirestore(notice, updated).catch((e) => {
+        console.warn('[Firestore] Error saving notice:', e);
+      });
       return updated;
     });
-    try {
-      await saveSingleNoticeToFirestore(notice);
-    } catch (e) {
-      console.warn('[Firestore] Error saving notice:', e);
-    }
   };
 
   const handleEditNotice = async (updatedNotice: Notice) => {
     setNotices(prev => {
       const updated = prev.map(n => n.id === updatedNotice.id ? updatedNotice : n);
       saveNotices(updated);
+      saveSingleNoticeToFirestore(updatedNotice, updated).catch((e) => {
+        console.warn('[Firestore] Error updating notice:', e);
+      });
       return updated;
     });
-    try {
-      await saveSingleNoticeToFirestore(updatedNotice);
-    } catch (e) {
-      console.warn('[Firestore] Error updating notice:', e);
-    }
   };
 
   const handleDeleteNotice = async (id: string) => {
@@ -349,45 +418,40 @@ export default function App() {
       setNotices(prev => {
         const updated = prev.filter(n => n.id !== id);
         saveNotices(updated);
+        deleteNoticeFromFirestore(id, updated).catch((e) => {
+          console.warn('[Firestore] Error deleting notice:', e);
+        });
         return updated;
       });
-      try {
-        await deleteNoticeFromFirestore(id);
-      } catch (e) {
-        console.warn('[Firestore] Error deleting notice:', e);
-      }
     }
   };
 
   // Fund Handlers
   const handleAddFund = async (newFund: Omit<FundRecord, 'id'>) => {
+    const fundId = `f-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const fund: FundRecord = {
       ...newFund,
-      id: `f-${Date.now()}`
+      id: fundId
     };
     setFunds(prev => {
-      const updated = [fund, ...prev];
+      const updated = [fund, ...prev.filter(f => f.id !== fund.id)];
       saveFunds(updated);
+      saveSingleFundToFirestore(fund, updated).catch((e) => {
+        console.warn('[Firestore] Error saving fund:', e);
+      });
       return updated;
     });
-    try {
-      await saveSingleFundToFirestore(fund);
-    } catch (e) {
-      console.warn('[Firestore] Error saving fund:', e);
-    }
   };
 
   const handleEditFund = async (updatedFund: FundRecord) => {
     setFunds(prev => {
       const updated = prev.map(f => f.id === updatedFund.id ? updatedFund : f);
       saveFunds(updated);
+      saveSingleFundToFirestore(updatedFund, updated).catch((e) => {
+        console.warn('[Firestore] Error updating fund:', e);
+      });
       return updated;
     });
-    try {
-      await saveSingleFundToFirestore(updatedFund);
-    } catch (e) {
-      console.warn('[Firestore] Error updating fund:', e);
-    }
   };
 
   const handleDeleteFund = async (id: string) => {
@@ -395,19 +459,17 @@ export default function App() {
       setFunds(prev => {
         const updated = prev.filter(f => f.id !== id);
         saveFunds(updated);
+        deleteFundFromFirestore(id, updated).catch((e) => {
+          console.warn('[Firestore] Error deleting fund:', e);
+        });
         return updated;
       });
-      try {
-        await deleteFundFromFirestore(id);
-      } catch (e) {
-        console.warn('[Firestore] Error deleting fund:', e);
-      }
     }
   };
 
   const handleToggleFundStatus = async (id: string, newStatus: PaymentStatus) => {
-    let updatedRecord: FundRecord | null = null;
     setFunds(prev => {
+      let updatedRecord: FundRecord | null = null;
       const updated = prev.map(f => {
         if (f.id === id) {
           updatedRecord = {
@@ -421,15 +483,13 @@ export default function App() {
         return f;
       });
       saveFunds(updated);
+      if (updatedRecord) {
+        saveSingleFundToFirestore(updatedRecord, updated).catch((e) => {
+          console.warn('[Firestore] Error updating fund status:', e);
+        });
+      }
       return updated;
     });
-    if (updatedRecord) {
-      try {
-        await saveSingleFundToFirestore(updatedRecord);
-      } catch (e) {
-        console.warn('[Firestore] Error updating fund status:', e);
-      }
-    }
   };
 
   const handleUpdateManualTotalBalance = (val: number | null) => {

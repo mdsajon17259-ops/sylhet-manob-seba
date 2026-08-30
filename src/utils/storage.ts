@@ -76,45 +76,85 @@ export function populateLocalStorageFromServer(
       }
     }
     if (Array.isArray(serverDb.members)) {
-      const current = localStorage.getItem(STORAGE_KEYS.MEMBERS);
-      const currentMembers: Member[] = current ? JSON.parse(current) : [];
-      if (serverDb.members.length > 0 || allowEmptyOverride || currentMembers.length === 0) {
-        const incoming = JSON.stringify(serverDb.members);
+      if (serverDb.members.length > 0) {
+        const current = localStorage.getItem(STORAGE_KEYS.MEMBERS);
+        const currentMembers: Member[] = current ? JSON.parse(current) : [];
+        const memberMap = new Map<string, Member>();
+        currentMembers.forEach((m) => { if (m && m.id) memberMap.set(m.id, m); });
+        serverDb.members.forEach((m) => { if (m && m.id) memberMap.set(m.id, m); });
+        const merged = Array.from(memberMap.values());
+        const incoming = JSON.stringify(merged);
         if (current !== incoming) {
           localStorage.setItem(STORAGE_KEYS.MEMBERS, incoming);
+          hasChanged = true;
+        }
+      } else if (allowEmptyOverride) {
+        const current = localStorage.getItem(STORAGE_KEYS.MEMBERS);
+        if (current !== '[]') {
+          localStorage.setItem(STORAGE_KEYS.MEMBERS, '[]');
           hasChanged = true;
         }
       }
     }
     if (Array.isArray(serverDb.donors)) {
-      const current = localStorage.getItem(STORAGE_KEYS.DONORS);
-      const currentDonors: BloodDonor[] = current ? JSON.parse(current) : [];
-      if (serverDb.donors.length > 0 || allowEmptyOverride || currentDonors.length === 0) {
-        const incoming = JSON.stringify(serverDb.donors);
+      if (serverDb.donors.length > 0) {
+        const current = localStorage.getItem(STORAGE_KEYS.DONORS);
+        const currentDonors: BloodDonor[] = current ? JSON.parse(current) : [];
+        const donorMap = new Map<string, BloodDonor>();
+        currentDonors.forEach((d) => { if (d && d.id) donorMap.set(d.id, d); });
+        serverDb.donors.forEach((d) => { if (d && d.id) donorMap.set(d.id, d); });
+        const merged = Array.from(donorMap.values());
+        const incoming = JSON.stringify(merged);
         if (current !== incoming) {
           localStorage.setItem(STORAGE_KEYS.DONORS, incoming);
+          hasChanged = true;
+        }
+      } else if (allowEmptyOverride) {
+        const current = localStorage.getItem(STORAGE_KEYS.DONORS);
+        if (current !== '[]') {
+          localStorage.setItem(STORAGE_KEYS.DONORS, '[]');
           hasChanged = true;
         }
       }
     }
     if (Array.isArray(serverDb.notices)) {
-      const current = localStorage.getItem(STORAGE_KEYS.NOTICES);
-      const currentNotices: Notice[] = current ? JSON.parse(current) : [];
-      if (serverDb.notices.length > 0 || allowEmptyOverride || currentNotices.length === 0) {
-        const incoming = JSON.stringify(serverDb.notices);
+      if (serverDb.notices.length > 0) {
+        const current = localStorage.getItem(STORAGE_KEYS.NOTICES);
+        const currentNotices: Notice[] = current ? JSON.parse(current) : [];
+        const noticeMap = new Map<string, Notice>();
+        currentNotices.forEach((n) => { if (n && n.id) noticeMap.set(n.id, n); });
+        serverDb.notices.forEach((n) => { if (n && n.id) noticeMap.set(n.id, n); });
+        const merged = Array.from(noticeMap.values());
+        const incoming = JSON.stringify(merged);
         if (current !== incoming) {
           localStorage.setItem(STORAGE_KEYS.NOTICES, incoming);
+          hasChanged = true;
+        }
+      } else if (allowEmptyOverride) {
+        const current = localStorage.getItem(STORAGE_KEYS.NOTICES);
+        if (current !== '[]') {
+          localStorage.setItem(STORAGE_KEYS.NOTICES, '[]');
           hasChanged = true;
         }
       }
     }
     if (Array.isArray(serverDb.funds)) {
-      const current = localStorage.getItem(STORAGE_KEYS.FUNDS);
-      const currentFunds: FundRecord[] = current ? JSON.parse(current) : [];
-      if (serverDb.funds.length > 0 || allowEmptyOverride || currentFunds.length === 0) {
-        const incoming = JSON.stringify(serverDb.funds);
+      if (serverDb.funds.length > 0) {
+        const current = localStorage.getItem(STORAGE_KEYS.FUNDS);
+        const currentFunds: FundRecord[] = current ? JSON.parse(current) : [];
+        const fundMap = new Map<string, FundRecord>();
+        currentFunds.forEach((f) => { if (f && f.id) fundMap.set(f.id, f); });
+        serverDb.funds.forEach((f) => { if (f && f.id) fundMap.set(f.id, f); });
+        const merged = Array.from(fundMap.values());
+        const incoming = JSON.stringify(merged);
         if (current !== incoming) {
           localStorage.setItem(STORAGE_KEYS.FUNDS, incoming);
+          hasChanged = true;
+        }
+      } else if (allowEmptyOverride) {
+        const current = localStorage.getItem(STORAGE_KEYS.FUNDS);
+        if (current !== '[]') {
+          localStorage.setItem(STORAGE_KEYS.FUNDS, '[]');
           hasChanged = true;
         }
       }
