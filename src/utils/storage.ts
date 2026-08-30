@@ -60,11 +60,14 @@ export function notifyDataChange(key: string, data?: any): void {
 /**
  * Hydrates local storage with server-persisted database state
  */
-export function populateLocalStorageFromServer(serverDb: ServerDatabasePayload): boolean {
+export function populateLocalStorageFromServer(
+  serverDb: ServerDatabasePayload,
+  allowEmptyOverride: boolean = false
+): boolean {
   if (typeof window === 'undefined' || !serverDb) return false;
   let hasChanged = false;
   try {
-    if (serverDb.profile) {
+    if (serverDb.profile && typeof serverDb.profile === 'object') {
       const current = localStorage.getItem(STORAGE_KEYS.PROFILE);
       const incoming = JSON.stringify(serverDb.profile);
       if (current !== incoming) {
@@ -74,34 +77,47 @@ export function populateLocalStorageFromServer(serverDb: ServerDatabasePayload):
     }
     if (Array.isArray(serverDb.members)) {
       const current = localStorage.getItem(STORAGE_KEYS.MEMBERS);
-      const incoming = JSON.stringify(serverDb.members);
-      if (current !== incoming) {
-        localStorage.setItem(STORAGE_KEYS.MEMBERS, incoming);
-        hasChanged = true;
+      const currentMembers: Member[] = current ? JSON.parse(current) : [];
+      // Only overwrite if incoming has items OR if allowEmptyOverride is true OR local is already empty
+      if (serverDb.members.length > 0 || allowEmptyOverride || currentMembers.length === 0) {
+        const incoming = JSON.stringify(serverDb.members);
+        if (current !== incoming) {
+          localStorage.setItem(STORAGE_KEYS.MEMBERS, incoming);
+          hasChanged = true;
+        }
       }
     }
     if (Array.isArray(serverDb.donors)) {
       const current = localStorage.getItem(STORAGE_KEYS.DONORS);
-      const incoming = JSON.stringify(serverDb.donors);
-      if (current !== incoming) {
-        localStorage.setItem(STORAGE_KEYS.DONORS, incoming);
-        hasChanged = true;
+      const currentDonors: BloodDonor[] = current ? JSON.parse(current) : [];
+      if (serverDb.donors.length > 0 || allowEmptyOverride || currentDonors.length === 0) {
+        const incoming = JSON.stringify(serverDb.donors);
+        if (current !== incoming) {
+          localStorage.setItem(STORAGE_KEYS.DONORS, incoming);
+          hasChanged = true;
+        }
       }
     }
     if (Array.isArray(serverDb.notices)) {
       const current = localStorage.getItem(STORAGE_KEYS.NOTICES);
-      const incoming = JSON.stringify(serverDb.notices);
-      if (current !== incoming) {
-        localStorage.setItem(STORAGE_KEYS.NOTICES, incoming);
-        hasChanged = true;
+      const currentNotices: Notice[] = current ? JSON.parse(current) : [];
+      if (serverDb.notices.length > 0 || allowEmptyOverride || currentNotices.length === 0) {
+        const incoming = JSON.stringify(serverDb.notices);
+        if (current !== incoming) {
+          localStorage.setItem(STORAGE_KEYS.NOTICES, incoming);
+          hasChanged = true;
+        }
       }
     }
     if (Array.isArray(serverDb.funds)) {
       const current = localStorage.getItem(STORAGE_KEYS.FUNDS);
-      const incoming = JSON.stringify(serverDb.funds);
-      if (current !== incoming) {
-        localStorage.setItem(STORAGE_KEYS.FUNDS, incoming);
-        hasChanged = true;
+      const currentFunds: FundRecord[] = current ? JSON.parse(current) : [];
+      if (serverDb.funds.length > 0 || allowEmptyOverride || currentFunds.length === 0) {
+        const incoming = JSON.stringify(serverDb.funds);
+        if (current !== incoming) {
+          localStorage.setItem(STORAGE_KEYS.FUNDS, incoming);
+          hasChanged = true;
+        }
       }
     }
     if (serverDb.manualTotalBalance !== undefined) {
@@ -119,7 +135,7 @@ export function populateLocalStorageFromServer(serverDb: ServerDatabasePayload):
         }
       }
     }
-    if (serverDb.paymentConfig) {
+    if (serverDb.paymentConfig && typeof serverDb.paymentConfig === 'object') {
       const current = localStorage.getItem(STORAGE_KEYS.PAYMENT_SETTINGS);
       const incoming = JSON.stringify(serverDb.paymentConfig);
       if (current !== incoming) {
