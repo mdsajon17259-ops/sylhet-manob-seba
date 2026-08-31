@@ -164,10 +164,33 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [memberPhotoBase64, setMemberPhotoBase64] = useState<string>('');
 
+  // Explicit Member Form Input States for robust submission
+  const [memberNameInput, setMemberNameInput] = useState('');
+  const [memberDesignationInput, setMemberDesignationInput] = useState('সদস্য');
+  const [memberPhoneInput, setMemberPhoneInput] = useState('');
+  const [memberAreaInput, setMemberAreaInput] = useState('পতেঙ্গা, চট্টগ্রাম');
+  const [memberJoinDateInput, setMemberJoinDateInput] = useState(new Date().toISOString().split('T')[0]);
+  const [memberEmailInput, setMemberEmailInput] = useState('');
+  const [memberStatusInput, setMemberStatusInput] = useState<'সক্রিয়' | 'স্থগিত'>('সক্রিয়');
+
   useEffect(() => {
     if (editingMember) {
+      setMemberNameInput(editingMember.name || '');
+      setMemberDesignationInput(editingMember.designation || 'সদস্য');
+      setMemberPhoneInput(editingMember.phone || '');
+      setMemberAreaInput(editingMember.area || 'পতেঙ্গা, চট্টগ্রাম');
+      setMemberJoinDateInput(editingMember.joinDate || new Date().toISOString().split('T')[0]);
+      setMemberEmailInput(editingMember.email || '');
+      setMemberStatusInput(editingMember.status || 'সক্রিয়');
       setMemberPhotoBase64(editingMember.photoUrl || '');
     } else {
+      setMemberNameInput('');
+      setMemberDesignationInput('সদস্য');
+      setMemberPhoneInput('');
+      setMemberAreaInput('পতেঙ্গা, চট্টগ্রাম');
+      setMemberJoinDateInput(new Date().toISOString().split('T')[0]);
+      setMemberEmailInput('');
+      setMemberStatusInput('সক্রিয়');
       setMemberPhotoBase64('');
     }
   }, [editingMember, isAddMemberOpen]);
@@ -334,16 +357,19 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
     setTimeout(() => setErrorMsg(''), 4000);
   };
 
-  // Direct Foolproof Firestore Payment Settings Handler
-  const handleSavePaymentSettings = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  // Direct Foolproof Firestore Payment Settings Handler (handleSaveSettings & handleSavePaymentSettings)
+  const handleSaveSettings = async (e?: React.FormEvent) => {
+    if (e && e.preventDefault) e.preventDefault();
     const paymentData: PaymentGatewayConfig = {
       bkashNumber: paymentConfig.bkashNumber?.trim() || '',
       bkashType: paymentConfig.bkashType || 'Personal',
+      bkashInstructions: paymentConfig.bkashInstructions?.trim() || '',
       nagadNumber: paymentConfig.nagadNumber?.trim() || '',
       nagadType: paymentConfig.nagadType || 'Personal',
+      nagadInstructions: paymentConfig.nagadInstructions?.trim() || '',
       rocketNumber: paymentConfig.rocketNumber?.trim() || '',
       rocketType: paymentConfig.rocketType || 'Personal',
+      rocketInstructions: paymentConfig.rocketInstructions?.trim() || '',
       bankDetails: paymentConfig.bankDetails?.trim() || '',
       instructions: paymentConfig.instructions?.trim() || '',
       activeGateways: paymentConfig.activeGateways || ['bkash', 'nagad', 'rocket']
@@ -365,12 +391,12 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
       }
       notifySuccess('বিকাশ, নগদ ও রকেট পেমেন্ট গেটওয়ে নম্বর সফলভাবে ফায়ারবেস ক্লাউড ও অ্যাপে সংরক্ষিত হয়েছে');
     } catch (err: any) {
-      console.error('[Direct Firestore ERROR] handleSavePaymentSettings failed:', {
+      console.error('[Direct Firestore ERROR] handleSaveSettings failed:', {
         code: err?.code,
         message: err?.message,
         error: err
       });
-      // Still update local state and notify with warning if offline
+      // Always update local state and notify so user has immediate feedback
       setPaymentConfig(paymentData);
       savePaymentSettings(paymentData);
       if (onUpdatePaymentConfig) {
@@ -379,6 +405,8 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
       notifySuccess('বিকাশ, নগদ ও রকেট পেমেন্ট গেটওয়ে নম্বর অ্যাপে আপডেট হয়েছে');
     }
   };
+
+  const handleSavePaymentSettings = handleSaveSettings;
 
   const handleTestCopy = (text: string, field: string) => {
     if (!text) return;
@@ -430,32 +458,45 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
   }, [funds]);
 
   // Direct Foolproof Firestore Member CRUD
-  const handleSaveMember = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-    const name = (formData.get('name') as string) || '';
-    const designation = (formData.get('designation') as string) || 'সদস্য';
-    const phone = (formData.get('phone') as string) || '';
-    const area = (formData.get('area') as string) || 'পতেঙ্গা, চট্টগ্রাম';
-    const photoUrl = memberPhotoBase64.trim();
-    const joinDate = (formData.get('joinDate') as string) || new Date().toISOString().split('T')[0];
-    const email = (formData.get('email') as string) || '';
-    const status = (formData.get('status') as 'সক্রিয়' | 'স্থগিত') || 'সক্রিয়';
+  const handleSaveMember = async (e?: React.FormEvent<HTMLFormElement> | React.MouseEvent) => {
+    if (e && e.preventDefault) e.preventDefault();
 
-    if (!name.trim() || !phone.trim()) {
+    let name = memberNameInput.trim();
+    let designation = memberDesignationInput.trim() || 'সদস্য';
+    let phone = memberPhoneInput.trim();
+    let area = memberAreaInput.trim() || 'পতেঙ্গা, চট্টগ্রাম';
+    let photoUrl = memberPhotoBase64.trim();
+    let joinDate = memberJoinDateInput || new Date().toISOString().split('T')[0];
+    let email = memberEmailInput.trim();
+    let status = memberStatusInput || 'সক্রিয়';
+
+    // Fallback to reading form elements if state wasn't updated
+    if (!name || !phone) {
+      if (e && 'currentTarget' in e && e.currentTarget instanceof HTMLFormElement) {
+        const formData = new FormData(e.currentTarget);
+        name = (formData.get('name') as string)?.trim() || name;
+        designation = (formData.get('designation') as string)?.trim() || designation;
+        phone = (formData.get('phone') as string)?.trim() || phone;
+        area = (formData.get('area') as string)?.trim() || area;
+        joinDate = (formData.get('joinDate') as string) || joinDate;
+        email = (formData.get('email') as string)?.trim() || email;
+        status = (formData.get('status') as 'সক্রিয়' | 'স্থগিত') || status;
+      }
+    }
+
+    if (!name || !phone) {
       notifyError('নাম এবং মোবাইল নম্বর অবশ্যই প্রদান করুন');
       return;
     }
 
     const memberData: Omit<Member, 'id'> = {
-      name: name.trim(),
-      designation: designation.trim() || 'সদস্য',
-      phone: phone.trim(),
-      area: area.trim() || 'পতেঙ্গা, চট্টগ্রাম',
+      name,
+      designation: designation || 'সদস্য',
+      phone,
+      area: area || 'পতেঙ্গা, চট্টগ্রাম',
       photoUrl: photoUrl || '',
       joinDate: joinDate || new Date().toISOString().split('T')[0],
-      email: email.trim(),
+      email: email || '',
       status: status || 'সক্রিয়'
     };
 
@@ -513,18 +554,28 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
         error: err
       });
       // Fallback local addition if network/permission issue
-      const fallbackId = `m-${Date.now()}`;
+      const fallbackId = editingMember ? editingMember.id : `m-${Date.now()}`;
       const fallbackMember: Member = {
         ...memberData,
         id: fallbackId
       };
-      if (setMembers) {
-        setMembers(prev => [fallbackMember, ...prev]);
+      if (editingMember) {
+        if (setMembers) {
+          setMembers(prev => prev.map(m => m.id === fallbackId ? fallbackMember : m));
+        }
+        if (onEditMember) {
+          onEditMember(fallbackMember);
+        }
+        setEditingMember(null);
+      } else {
+        if (setMembers) {
+          setMembers(prev => [fallbackMember, ...prev]);
+        }
+        if (onAddMember) {
+          onAddMember(memberData);
+        }
+        setIsAddMemberOpen(false);
       }
-      if (onAddMember) {
-        onAddMember(memberData);
-      }
-      setIsAddMemberOpen(false);
       notifySuccess('নতুন সদস্য তালিকায় যুক্ত হয়েছে');
     }
   };
@@ -2611,7 +2662,8 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                 <button
                   type="submit"
                   id="admin-save-payments-btn"
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5"
+                  onClick={(e) => handleSaveSettings(e)}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
                   <span>পেমেন্ট নম্বরসমূহ সংরক্ষণ করুন</span>
@@ -2646,7 +2698,8 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                   type="text"
                   name="name"
                   required
-                  defaultValue={editingMember?.name || ''}
+                  value={memberNameInput}
+                  onChange={(e) => setMemberNameInput(e.target.value)}
                   placeholder="যেমন: মোহাম্মদ সাহেদুল আলম"
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
                 />
@@ -2659,7 +2712,8 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                     type="text"
                     name="designation"
                     required
-                    defaultValue={editingMember?.designation || 'সদস্য'}
+                    value={memberDesignationInput}
+                    onChange={(e) => setMemberDesignationInput(e.target.value)}
                     placeholder="যেমন: সাধারণ সম্পাদক"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
                   />
@@ -2671,7 +2725,8 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                     type="text"
                     name="phone"
                     required
-                    defaultValue={editingMember?.phone || ''}
+                    value={memberPhoneInput}
+                    onChange={(e) => setMemberPhoneInput(e.target.value)}
                     placeholder="01811-XXXXXX"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
                   />
@@ -2683,7 +2738,8 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                 <input
                   type="text"
                   name="area"
-                  defaultValue={editingMember?.area || 'পতেঙ্গা, চট্টগ্রাম'}
+                  value={memberAreaInput}
+                  onChange={(e) => setMemberAreaInput(e.target.value)}
                   placeholder="যেমন: কাঠগড়, পতেঙ্গা, চট্টগ্রাম"
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
                 />
@@ -2720,7 +2776,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                         <button
                           type="button"
                           onClick={() => document.getElementById('admin-member-photo-picker')?.click()}
-                          className="px-2.5 py-1 bg-white hover:bg-blue-100 text-blue-800 text-xs font-bold rounded-lg border border-blue-300 transition flex items-center gap-1"
+                          className="px-2.5 py-1 bg-white hover:bg-blue-100 text-blue-800 text-xs font-bold rounded-lg border border-blue-300 transition flex items-center gap-1 cursor-pointer"
                         >
                           <Camera className="w-3 h-3" />
                           <span>পরিবর্তন</span>
@@ -2728,7 +2784,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                         <button
                           type="button"
                           onClick={() => setMemberPhotoBase64('')}
-                          className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold rounded-lg border border-rose-200 transition"
+                          className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold rounded-lg border border-rose-200 transition cursor-pointer"
                         >
                           মুছুন
                         </button>
@@ -2760,7 +2816,8 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                   <input
                     type="date"
                     name="joinDate"
-                    defaultValue={editingMember?.joinDate || new Date().toISOString().split('T')[0]}
+                    value={memberJoinDateInput}
+                    onChange={(e) => setMemberJoinDateInput(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none"
                   />
                 </div>
@@ -2769,7 +2826,8 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                   <label className="block text-xs font-semibold text-slate-700 mb-1">সদস্য পদ স্ট্যাটাস</label>
                   <select
                     name="status"
-                    defaultValue={editingMember?.status || 'সক্রিয়'}
+                    value={memberStatusInput}
+                    onChange={(e) => setMemberStatusInput(e.target.value as any)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-bold bg-white"
                   >
                     <option value="সক্রিয়">সক্রিয়</option>
@@ -2782,15 +2840,18 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => { setIsAddMemberOpen(false); setEditingMember(null); }}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer"
                 >
                   বাতিল
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs"
+                  id="admin-save-member-btn"
+                  onClick={(e) => handleSaveMember(e)}
+                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
-                  {editingMember ? 'আপডেট করুন' : 'সংরক্ষণ করুন'}
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{editingMember ? 'আপডেট করুন' : 'সংরক্ষণ করুন'}</span>
                 </button>
               </div>
             </form>
