@@ -59,8 +59,13 @@ export function sanitizeForFirestore<T>(data: T): T {
   if (data === null || typeof data !== 'object') {
     return data;
   }
+  if (data instanceof Date) {
+    return data;
+  }
   if (Array.isArray(data)) {
-    return data.map((item) => sanitizeForFirestore(item)) as any;
+    return data
+      .filter((item) => item !== undefined)
+      .map((item) => sanitizeForFirestore(item)) as any;
   }
   const cleanObj: Record<string, any> = {};
   for (const [key, val] of Object.entries(data)) {

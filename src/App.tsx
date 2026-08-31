@@ -46,6 +46,7 @@ import {
   listenToFirestoreAppData,
   fetchFirestoreAppData,
   ensureFirestoreCollectionsAndSettings,
+  sanitizeForFirestore,
   saveSingleMemberToFirestore,
   deleteMemberFromFirestore,
   saveSingleDonorToFirestore,
@@ -299,47 +300,50 @@ export default function App() {
   }, [activeScreen]);
 
   const handleUpdateProfile = async (newProfile: OrganizationProfile) => {
-    setProfile(newProfile);
-    saveOrgProfile(newProfile);
+    const cleanProfile = sanitizeForFirestore(newProfile);
+    setProfile(cleanProfile);
+    saveOrgProfile(cleanProfile);
     try {
       await setDoc(doc(db, 'settings', 'profile'), {
-        ...newProfile,
+        ...cleanProfile,
         updatedAt: serverTimestamp()
       }, { merge: true });
     } catch (e) {
-      console.warn('[Direct Firestore] Profile update fallback:', e);
-      saveOrgProfileToFirestore(newProfile).catch(() => {});
+      console.warn('[Firestore] Profile update fallback:', e);
+      saveOrgProfileToFirestore(cleanProfile).catch(() => {});
     }
   };
 
   const handleUpdatePaymentConfig = async (newConfig: PaymentGatewayConfig) => {
-    setPaymentConfig(newConfig);
-    savePaymentSettings(newConfig);
+    const cleanConfig = sanitizeForFirestore(newConfig);
+    setPaymentConfig(cleanConfig);
+    savePaymentSettings(cleanConfig);
     try {
       await setDoc(doc(db, 'settings', 'payment'), {
-        ...newConfig,
+        ...cleanConfig,
         updatedAt: serverTimestamp()
       }, { merge: true });
-      console.log('[Direct Firestore SUCCESS] App handleUpdatePaymentConfig saved doc(settings, payment)');
+      console.log('[Firestore SUCCESS] App handleUpdatePaymentConfig saved doc(settings, payment)');
     } catch (e) {
-      console.warn('[Direct Firestore] Payment config update fallback:', e);
-      savePaymentConfigToFirestore(newConfig).catch(() => {});
+      console.warn('[Firestore] Payment config update fallback:', e);
+      savePaymentConfigToFirestore(cleanConfig).catch(() => {});
     }
   };
 
-  // Member Handlers - Direct Firestore addDoc & setDoc
-  const handleAddMember = async (newMember: Omit<Member, 'id'>) => {
+  // Member Handlers - Direct Firestore addDoc & setDoc (Single Write & Sanitized)
+  const handleAddMember = async (newMember: Omit<Member, 'id'>): Promise<Member> => {
+    const cleanMemberData = sanitizeForFirestore(newMember);
     try {
-      console.log('[Direct Firestore App] Adding member to collection(db, "members")...', newMember);
+      console.log('[Firestore App] Adding member to collection(db, "members")...', cleanMemberData);
       const docRef = await addDoc(collection(db, 'members'), {
-        ...newMember,
+        ...cleanMemberData,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
-      console.log('[Direct Firestore App SUCCESS] Created member with doc ID:', docRef.id);
+      console.log('[Firestore App SUCCESS] Created member with doc ID:', docRef.id);
 
       const member: Member = {
-        ...newMember,
+        ...cleanMemberData,
         id: docRef.id
       };
       
@@ -348,12 +352,12 @@ export default function App() {
         saveMembers(updated);
         return updated;
       });
+      return member;
     } catch (err) {
-      console.error('[Direct Firestore App ERROR] addDoc(members) failed:', err);
-      // Fallback
+      console.error('[Firestore App ERROR] addDoc(members) failed:', err);
       const memberId = `m-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const member: Member = {
-        ...newMember,
+        ...cleanMemberData,
         id: memberId
       };
       setMembers(prev => {
@@ -362,35 +366,37 @@ export default function App() {
         saveSingleMemberToFirestore(member, updated).catch(() => {});
         return updated;
       });
+      return member;
     }
   };
 
-  const handleEditMember = async (updatedMember: Member) => {
+  const handleEditMember = async (updatedMember: Member): Promise<void> => {
+    const cleanMember = sanitizeForFirestore(updatedMember);
     try {
-      console.log('[Direct Firestore App] Updating member doc(db, "members", id):', updatedMember.id);
-      await setDoc(doc(db, 'members', updatedMember.id), {
-        ...updatedMember,
+      console.log('[Firestore App] Updating member doc(db, "members", id):', cleanMember.id);
+      await setDoc(doc(db, 'members', cleanMember.id), {
+        ...cleanMember,
         updatedAt: serverTimestamp()
       }, { merge: true });
     } catch (err) {
-      console.error('[Direct Firestore App ERROR] setDoc(members) failed:', err);
-      saveSingleMemberToFirestore(updatedMember, members).catch(() => {});
+      console.error('[Firestore App ERROR] setDoc(members) failed:', err);
+      saveSingleMemberToFirestore(cleanMember, members).catch(() => {});
     }
 
     setMembers(prev => {
-      const updated = prev.map(m => m.id === updatedMember.id ? updatedMember : m);
+      const updated = prev.map(m => m.id === cleanMember.id ? cleanMember : m);
       saveMembers(updated);
       return updated;
     });
   };
 
-  const handleDeleteMember = async (id: string, name: string) => {
+  const handleDeleteMember = async (id: string, name: string): Promise<void> => {
     if (confirm(`আপনি কি সদস্য "${name}" কে মুছে ফেলতে চান?`)) {
       try {
-        console.log('[Direct Firestore App] Deleting member doc(db, "members", id):', id);
+        console.log('[Firestore App] Deleting member doc(db, "members", id):', id);
         await deleteDoc(doc(db, 'members', id));
       } catch (err) {
-        console.error('[Direct Firestore App ERROR] deleteDoc(members) failed:', err);
+        console.error('[Firestore App ERROR] deleteDoc(members) failed:', err);
         deleteMemberFromFirestore(id, members).catch(() => {});
       }
 
@@ -403,15 +409,16 @@ export default function App() {
   };
 
   // Donor Handlers
-  const handleAddDonor = async (newDonor: Omit<BloodDonor, 'id'>) => {
+  const handleAddDonor = async (newDonor: Omit<BloodDonor, 'id'>): Promise<BloodDonor> => {
+    const cleanDonorData = sanitizeForFirestore(newDonor);
     try {
       const docRef = await addDoc(collection(db, 'donors'), {
-        ...newDonor,
+        ...cleanDonorData,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
       const donor: BloodDonor = {
-        ...newDonor,
+        ...cleanDonorData,
         id: docRef.id
       };
       setDonors(prev => {
@@ -419,10 +426,11 @@ export default function App() {
         saveDonors(updated);
         return updated;
       });
+      return donor;
     } catch (err) {
       const donorId = `d-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const donor: BloodDonor = {
-        ...newDonor,
+        ...cleanDonorData,
         id: donorId
       };
       setDonors(prev => {
@@ -431,27 +439,29 @@ export default function App() {
         saveSingleDonorToFirestore(donor, updated).catch(() => {});
         return updated;
       });
+      return donor;
     }
   };
 
-  const handleEditDonor = async (updatedDonor: BloodDonor) => {
+  const handleEditDonor = async (updatedDonor: BloodDonor): Promise<void> => {
+    const cleanDonor = sanitizeForFirestore(updatedDonor);
     try {
-      await setDoc(doc(db, 'donors', updatedDonor.id), {
-        ...updatedDonor,
+      await setDoc(doc(db, 'donors', cleanDonor.id), {
+        ...cleanDonor,
         updatedAt: serverTimestamp()
       }, { merge: true });
     } catch (err) {
-      saveSingleDonorToFirestore(updatedDonor, donors).catch(() => {});
+      saveSingleDonorToFirestore(cleanDonor, donors).catch(() => {});
     }
 
     setDonors(prev => {
-      const updated = prev.map(d => d.id === updatedDonor.id ? updatedDonor : d);
+      const updated = prev.map(d => d.id === cleanDonor.id ? cleanDonor : d);
       saveDonors(updated);
       return updated;
     });
   };
 
-  const handleDeleteDonor = async (id: string, name: string) => {
+  const handleDeleteDonor = async (id: string, name: string): Promise<void> => {
     if (confirm(`আপনি কি রক্তদাতা "${name}" এর তথ্য মুছে ফেলতে চান?`)) {
       try {
         await deleteDoc(doc(db, 'donors', id));
@@ -468,15 +478,16 @@ export default function App() {
   };
 
   // Notice Handlers
-  const handleAddNotice = async (newNotice: Omit<Notice, 'id'>) => {
+  const handleAddNotice = async (newNotice: Omit<Notice, 'id'>): Promise<Notice> => {
+    const cleanNoticeData = sanitizeForFirestore(newNotice);
     try {
       const docRef = await addDoc(collection(db, 'notices'), {
-        ...newNotice,
+        ...cleanNoticeData,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
       const notice: Notice = {
-        ...newNotice,
+        ...cleanNoticeData,
         id: docRef.id
       };
       setNotices(prev => {
@@ -484,10 +495,11 @@ export default function App() {
         saveNotices(updated);
         return updated;
       });
+      return notice;
     } catch (err) {
       const noticeId = `n-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const notice: Notice = {
-        ...newNotice,
+        ...cleanNoticeData,
         id: noticeId
       };
       setNotices(prev => {
@@ -496,27 +508,29 @@ export default function App() {
         saveSingleNoticeToFirestore(notice, updated).catch(() => {});
         return updated;
       });
+      return notice;
     }
   };
 
-  const handleEditNotice = async (updatedNotice: Notice) => {
+  const handleEditNotice = async (updatedNotice: Notice): Promise<void> => {
+    const cleanNotice = sanitizeForFirestore(updatedNotice);
     try {
-      await setDoc(doc(db, 'notices', updatedNotice.id), {
-        ...updatedNotice,
+      await setDoc(doc(db, 'notices', cleanNotice.id), {
+        ...cleanNotice,
         updatedAt: serverTimestamp()
       }, { merge: true });
     } catch (err) {
-      saveSingleNoticeToFirestore(updatedNotice, notices).catch(() => {});
+      saveSingleNoticeToFirestore(cleanNotice, notices).catch(() => {});
     }
 
     setNotices(prev => {
-      const updated = prev.map(n => n.id === updatedNotice.id ? updatedNotice : n);
+      const updated = prev.map(n => n.id === cleanNotice.id ? cleanNotice : n);
       saveNotices(updated);
       return updated;
     });
   };
 
-  const handleDeleteNotice = async (id: string) => {
+  const handleDeleteNotice = async (id: string): Promise<void> => {
     if (confirm('আপনি কি এই নোটিশটি মুছে ফেলতে চান?')) {
       try {
         await deleteDoc(doc(db, 'notices', id));
@@ -533,15 +547,16 @@ export default function App() {
   };
 
   // Fund Handlers
-  const handleAddFund = async (newFund: Omit<FundRecord, 'id'>) => {
+  const handleAddFund = async (newFund: Omit<FundRecord, 'id'>): Promise<FundRecord> => {
+    const cleanFundData = sanitizeForFirestore(newFund);
     try {
       const docRef = await addDoc(collection(db, 'funds'), {
-        ...newFund,
+        ...cleanFundData,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
       const fund: FundRecord = {
-        ...newFund,
+        ...cleanFundData,
         id: docRef.id
       };
       setFunds(prev => {
@@ -549,10 +564,11 @@ export default function App() {
         saveFunds(updated);
         return updated;
       });
+      return fund;
     } catch (err) {
       const fundId = `f-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const fund: FundRecord = {
-        ...newFund,
+        ...cleanFundData,
         id: fundId
       };
       setFunds(prev => {
@@ -561,27 +577,29 @@ export default function App() {
         saveSingleFundToFirestore(fund, updated).catch(() => {});
         return updated;
       });
+      return fund;
     }
   };
 
-  const handleEditFund = async (updatedFund: FundRecord) => {
+  const handleEditFund = async (updatedFund: FundRecord): Promise<void> => {
+    const cleanFund = sanitizeForFirestore(updatedFund);
     try {
-      await setDoc(doc(db, 'funds', updatedFund.id), {
-        ...updatedFund,
+      await setDoc(doc(db, 'funds', cleanFund.id), {
+        ...cleanFund,
         updatedAt: serverTimestamp()
       }, { merge: true });
     } catch (err) {
-      saveSingleFundToFirestore(updatedFund, funds).catch(() => {});
+      saveSingleFundToFirestore(cleanFund, funds).catch(() => {});
     }
 
     setFunds(prev => {
-      const updated = prev.map(f => f.id === updatedFund.id ? updatedFund : f);
+      const updated = prev.map(f => f.id === cleanFund.id ? cleanFund : f);
       saveFunds(updated);
       return updated;
     });
   };
 
-  const handleDeleteFund = async (id: string) => {
+  const handleDeleteFund = async (id: string): Promise<void> => {
     if (confirm('আপনি কি এই ফান্ড এন্ট্রিটি মুছে ফেলতে চান?')) {
       try {
         await deleteDoc(doc(db, 'funds', id));
@@ -597,17 +615,17 @@ export default function App() {
     }
   };
 
-  const handleToggleFundStatus = async (id: string, newStatus: PaymentStatus) => {
+  const handleToggleFundStatus = async (id: string, newStatus: PaymentStatus): Promise<void> => {
     let updatedRecord: FundRecord | null = null;
     setFunds(prev => {
       const updated = prev.map(f => {
         if (f.id === id) {
-          updatedRecord = {
+          updatedRecord = sanitizeForFirestore({
             ...f,
             status: newStatus,
             approvedAt: newStatus === 'Paid' ? new Date().toISOString() : f.approvedAt,
             date: f.date || new Date().toISOString().split('T')[0]
-          };
+          });
           return updatedRecord;
         }
         return f;

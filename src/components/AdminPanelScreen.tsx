@@ -357,7 +357,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
     setTimeout(() => setErrorMsg(''), 4000);
   };
 
-  // Direct Foolproof Firestore Payment Settings Handler (handleSaveSettings & handleSavePaymentSettings)
+  // Direct Single-Write Payment Settings Handler
   const handleSaveSettings = async (e?: React.FormEvent) => {
     if (e && e.preventDefault) e.preventDefault();
     const paymentData: PaymentGatewayConfig = {
@@ -375,21 +375,10 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
       activeGateways: paymentConfig.activeGateways || ['bkash', 'nagad', 'rocket']
     };
 
-    console.log('[Direct Firestore] Saving payment data to doc(db, "settings", "payment"):', paymentData);
-    const paymentDocRef = doc(db, 'settings', 'payment');
-    
-    // Direct setDoc call without masking error
-    await setDoc(paymentDocRef, {
-      ...paymentData,
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-    
-    console.log('[Direct Firestore SUCCESS] doc(db, "settings", "payment") successfully written');
-
     setPaymentConfig(paymentData);
     savePaymentSettings(paymentData);
     if (onUpdatePaymentConfig) {
-      onUpdatePaymentConfig(paymentData);
+      await onUpdatePaymentConfig(paymentData);
     }
     notifySuccess('বিকাশ, নগদ ও রকেট পেমেন্ট গেটওয়ে নম্বর সফলভাবে ফায়ারবেস ক্লাউড ও অ্যাপে সংরক্ষিত হয়েছে');
   };
@@ -413,6 +402,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
     let dueItems = 0;
     let expenseItems = 0;
     let pendingItems = 0;
+    let totalBalance = 0;
 
     funds.forEach(f => {
       if (f.status === 'Paid') {
@@ -445,7 +435,7 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
     };
   }, [funds]);
 
-  // Direct Foolproof Firestore Member CRUD
+  // Clean Single-Write Member CRUD (Delegates cleanly to App onAddMember / onEditMember)
   const handleSaveMember = async (e?: React.FormEvent<HTMLFormElement> | React.MouseEvent) => {
     if (e && e.preventDefault) e.preventDefault();
 
@@ -489,68 +479,42 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
     };
 
     if (editingMember) {
-      console.log('[Direct Firestore] Updating member doc(db, "members", id):', editingMember.id, memberData);
-      const memberDocRef = doc(db, 'members', editingMember.id);
-      await setDoc(memberDocRef, {
-        ...memberData,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-      console.log('[Direct Firestore SUCCESS] Updated member doc:', editingMember.id);
-
       const updatedMember: Member = {
         ...memberData,
         id: editingMember.id
       };
 
       if (onEditMember) {
-        onEditMember(updatedMember);
-      }
-      if (setMembers) {
+        await onEditMember(updatedMember);
+      } else if (setMembers) {
         setMembers(prev => prev.map(m => m.id === editingMember.id ? updatedMember : m));
       }
       setEditingMember(null);
       notifySuccess('সদস্যের তথ্য সফলভাবে ফায়ারবেস ও অ্যাপে আপডেট হয়েছে');
     } else {
-      console.log('[Direct Firestore] Calling addDoc(collection(db, "members"), memberData)...', memberData);
-      // Direct addDoc call without local fallback so real error is thrown/visible
-      const docRef = await addDoc(collection(db, 'members'), {
-        ...memberData,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      console.log('[Direct Firestore SUCCESS] Created member with returned ID:', docRef.id);
-
-      const newMember: Member = {
-        ...memberData,
-        id: docRef.id
-      };
-
-      // Update local React state with the real Firestore returned ID
-      if (setMembers) {
-        setMembers(prev => [newMember, ...prev.filter(m => m.id !== newMember.id)]);
-      }
       if (onAddMember) {
-        onAddMember(memberData);
+        await onAddMember(memberData);
+      } else if (setMembers) {
+        const newMember: Member = {
+          ...memberData,
+          id: `m-${Date.now()}`
+        };
+        setMembers(prev => [newMember, ...prev]);
       }
       setIsAddMemberOpen(false);
+      setMemberNameInput('');
+      setMemberPhoneInput('');
+      setMemberPhotoBase64('');
+      setMemberEmailInput('');
       notifySuccess('নতুন সদস্য সফলভাবে ফায়ারবেস ক্লাউড ও ডাটাবেজে যুক্ত হয়েছে');
     }
   };
 
   const handleDeleteMember = async (id: string, name: string) => {
     if (window.confirm(`আপনি কি নিশ্চিত যে "${name}"-কে সদস্য তালিকা থেকে মুছে ফেলতে চান?`)) {
-      try {
-        console.log('[Direct Firestore] Deleting member doc(db, "members", id):', id);
-        await deleteDoc(doc(db, 'members', id));
-        console.log('[Direct Firestore SUCCESS] Deleted member doc:', id);
-      } catch (err: any) {
-        console.error('[Direct Firestore ERROR] deleteDoc(members) failed:', err);
-      }
-
       if (onDeleteMember) {
-        onDeleteMember(id, name);
-      }
-      if (setMembers) {
+        await onDeleteMember(id, name);
+      } else if (setMembers) {
         setMembers(prev => prev.filter(m => m.id !== id));
       }
       notifySuccess(`"${name}" সদস্য তালিকা থেকে মুছে ফেলা হয়েছে`);
