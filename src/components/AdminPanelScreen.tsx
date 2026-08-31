@@ -375,35 +375,23 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
       activeGateways: paymentConfig.activeGateways || ['bkash', 'nagad', 'rocket']
     };
 
-    try {
-      console.log('[Direct Firestore] Saving payment data to doc(db, "settings", "payment"):', paymentData);
-      const paymentDocRef = doc(db, 'settings', 'payment');
-      await setDoc(paymentDocRef, {
-        ...paymentData,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-      console.log('[Direct Firestore SUCCESS] doc(db, "settings", "payment") successfully written');
+    console.log('[Direct Firestore] Saving payment data to doc(db, "settings", "payment"):', paymentData);
+    const paymentDocRef = doc(db, 'settings', 'payment');
+    
+    // Direct setDoc call without masking error
+    await setDoc(paymentDocRef, {
+      ...paymentData,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    
+    console.log('[Direct Firestore SUCCESS] doc(db, "settings", "payment") successfully written');
 
-      setPaymentConfig(paymentData);
-      savePaymentSettings(paymentData);
-      if (onUpdatePaymentConfig) {
-        onUpdatePaymentConfig(paymentData);
-      }
-      notifySuccess('বিকাশ, নগদ ও রকেট পেমেন্ট গেটওয়ে নম্বর সফলভাবে ফায়ারবেস ক্লাউড ও অ্যাপে সংরক্ষিত হয়েছে');
-    } catch (err: any) {
-      console.error('[Direct Firestore ERROR] handleSaveSettings failed:', {
-        code: err?.code,
-        message: err?.message,
-        error: err
-      });
-      // Always update local state and notify so user has immediate feedback
-      setPaymentConfig(paymentData);
-      savePaymentSettings(paymentData);
-      if (onUpdatePaymentConfig) {
-        onUpdatePaymentConfig(paymentData);
-      }
-      notifySuccess('বিকাশ, নগদ ও রকেট পেমেন্ট গেটওয়ে নম্বর অ্যাপে আপডেট হয়েছে');
+    setPaymentConfig(paymentData);
+    savePaymentSettings(paymentData);
+    if (onUpdatePaymentConfig) {
+      onUpdatePaymentConfig(paymentData);
     }
+    notifySuccess('বিকাশ, নগদ ও রকেট পেমেন্ট গেটওয়ে নম্বর সফলভাবে ফায়ারবেস ক্লাউড ও অ্যাপে সংরক্ষিত হয়েছে');
   };
 
   const handleSavePaymentSettings = handleSaveSettings;
@@ -500,83 +488,52 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
       status: status || 'সক্রিয়'
     };
 
-    try {
-      if (editingMember) {
-        console.log('[Direct Firestore] Updating member doc(db, "members", id):', editingMember.id, memberData);
-        const memberDocRef = doc(db, 'members', editingMember.id);
-        await setDoc(memberDocRef, {
-          ...memberData,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-        console.log('[Direct Firestore SUCCESS] Updated member doc:', editingMember.id);
-
-        const updatedMember: Member = {
-          ...memberData,
-          id: editingMember.id
-        };
-
-        if (onEditMember) {
-          onEditMember(updatedMember);
-        }
-        if (setMembers) {
-          setMembers(prev => prev.map(m => m.id === editingMember.id ? updatedMember : m));
-        }
-        setEditingMember(null);
-        notifySuccess('সদস্যের তথ্য সফলভাবে ফায়ারবেস ও অ্যাপে আপডেট হয়েছে');
-      } else {
-        console.log('[Direct Firestore] Calling addDoc(collection(db, "members"), memberData)...', memberData);
-        const docRef = await addDoc(collection(db, 'members'), {
-          ...memberData,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-        console.log('[Direct Firestore SUCCESS] Created member with returned ID:', docRef.id);
-
-        const newMember: Member = {
-          ...memberData,
-          id: docRef.id
-        };
-
-        // Immediately update local React state with the returned ID
-        if (setMembers) {
-          setMembers(prev => [newMember, ...prev.filter(m => m.id !== newMember.id)]);
-        }
-        if (onAddMember) {
-          onAddMember(memberData);
-        }
-        setIsAddMemberOpen(false);
-        notifySuccess('নতুন সদস্য সফলভাবে ফায়ারবেস ক্লাউড ও ডাটাবেজে যুক্ত হয়েছে');
-      }
-    } catch (err: any) {
-      console.error('[Direct Firestore ERROR] handleSaveMember failed:', {
-        code: err?.code,
-        message: err?.message,
-        error: err
-      });
-      // Fallback local addition if network/permission issue
-      const fallbackId = editingMember ? editingMember.id : `m-${Date.now()}`;
-      const fallbackMember: Member = {
+    if (editingMember) {
+      console.log('[Direct Firestore] Updating member doc(db, "members", id):', editingMember.id, memberData);
+      const memberDocRef = doc(db, 'members', editingMember.id);
+      await setDoc(memberDocRef, {
         ...memberData,
-        id: fallbackId
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      console.log('[Direct Firestore SUCCESS] Updated member doc:', editingMember.id);
+
+      const updatedMember: Member = {
+        ...memberData,
+        id: editingMember.id
       };
-      if (editingMember) {
-        if (setMembers) {
-          setMembers(prev => prev.map(m => m.id === fallbackId ? fallbackMember : m));
-        }
-        if (onEditMember) {
-          onEditMember(fallbackMember);
-        }
-        setEditingMember(null);
-      } else {
-        if (setMembers) {
-          setMembers(prev => [fallbackMember, ...prev]);
-        }
-        if (onAddMember) {
-          onAddMember(memberData);
-        }
-        setIsAddMemberOpen(false);
+
+      if (onEditMember) {
+        onEditMember(updatedMember);
       }
-      notifySuccess('নতুন সদস্য তালিকায় যুক্ত হয়েছে');
+      if (setMembers) {
+        setMembers(prev => prev.map(m => m.id === editingMember.id ? updatedMember : m));
+      }
+      setEditingMember(null);
+      notifySuccess('সদস্যের তথ্য সফলভাবে ফায়ারবেস ও অ্যাপে আপডেট হয়েছে');
+    } else {
+      console.log('[Direct Firestore] Calling addDoc(collection(db, "members"), memberData)...', memberData);
+      // Direct addDoc call without local fallback so real error is thrown/visible
+      const docRef = await addDoc(collection(db, 'members'), {
+        ...memberData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      console.log('[Direct Firestore SUCCESS] Created member with returned ID:', docRef.id);
+
+      const newMember: Member = {
+        ...memberData,
+        id: docRef.id
+      };
+
+      // Update local React state with the real Firestore returned ID
+      if (setMembers) {
+        setMembers(prev => [newMember, ...prev.filter(m => m.id !== newMember.id)]);
+      }
+      if (onAddMember) {
+        onAddMember(memberData);
+      }
+      setIsAddMemberOpen(false);
+      notifySuccess('নতুন সদস্য সফলভাবে ফায়ারবেস ক্লাউড ও ডাটাবেজে যুক্ত হয়েছে');
     }
   };
 
