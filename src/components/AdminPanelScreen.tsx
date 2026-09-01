@@ -383,6 +383,39 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
     notifySuccess('বিকাশ, নগদ ও রকেট পেমেন্ট গেটওয়ে নম্বর সফলভাবে ফায়ারবেস ক্লাউড ও অ্যাপে সংরক্ষিত হয়েছে');
   };
 
+  const handleClearAllPaymentNumbers = async () => {
+    if (window.confirm('আপনি কি নিশ্চিত যে সকল পেমেন্ট নম্বর (বিকাশ, নগদ, রকেট) মুছে সম্পূর্ণ ফাঁকা করতে চান? এর ফলে ডাটাবেজ ও লোকাল স্টোরেজ থেকে বর্তমান নম্বরগুলো রিমুভ হয়ে যাবে এবং আপনি প্রয়োজনমতো নতুন নম্বর সেট করতে পারবেন।')) {
+      const clearedData: PaymentGatewayConfig = {
+        ...paymentConfig,
+        bkashNumber: '',
+        nagadNumber: '',
+        rocketNumber: '',
+        bankDetails: ''
+      };
+      setPaymentConfig(clearedData);
+      savePaymentSettings(clearedData);
+      if (onUpdatePaymentConfig) {
+        await onUpdatePaymentConfig(clearedData);
+      }
+      notifySuccess('বিকাশ, নগদ ও রকেট পেমেন্ট নম্বর সফলভাবে মুছে ডাটাবেজ থেকে সম্পূর্ণ ফাঁকা করা হয়েছে। আপনি চাইলে এখন যেকোনো নতুন নম্বর লিখে সেভ করতে পারেন।');
+    }
+  };
+
+  const handleClearSinglePaymentNumber = async (gateway: 'bkash' | 'nagad' | 'rocket') => {
+    const nameMap = { bkash: 'বিকাশ', nagad: 'নগদ', rocket: 'রকেট' };
+    const keyMap = { bkash: 'bkashNumber', nagad: 'nagadNumber', rocket: 'rocketNumber' } as const;
+    const updatedData: PaymentGatewayConfig = {
+      ...paymentConfig,
+      [keyMap[gateway]]: ''
+    };
+    setPaymentConfig(updatedData);
+    savePaymentSettings(updatedData);
+    if (onUpdatePaymentConfig) {
+      await onUpdatePaymentConfig(updatedData);
+    }
+    notifySuccess(`${nameMap[gateway]} নম্বর সফলভাবে মুছে ফাঁকা করা হয়েছে। আপনি চাইলে নতুন নম্বর দিয়ে সেভ করতে পারেন।`);
+  };
+
   const handleSavePaymentSettings = handleSaveSettings;
 
   const handleTestCopy = (text: string, field: string) => {
@@ -2434,16 +2467,27 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
 
           {/* Payment Gateway Settings (bKash, Nagad, Rocket) */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Wallet className="w-5 h-5 text-emerald-600" />
                   মাসিক চাঁদা পেমেন্ট গেটওয়ে নম্বর ও তথ্য সেটিংস
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  সদস্যদের চাঁদা ও অনুদান পরিশোধের জন্য বিকাশ, নগদ ও রকেট মোবাইল ব্যাংকিং নম্বরসমূহ এখানে সেট করুন।
+                  সদস্যদের চাঁদা ও অনুদান পরিশোধের জন্য বিকাশ, নগদ ও রকেট নম্বরসমূহ সেট করুন বা ফাঁকা করতে মুছুন।
                 </p>
               </div>
+
+              <button
+                type="button"
+                id="admin-clear-all-payments-btn"
+                onClick={handleClearAllPaymentNumbers}
+                className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 shadow-xs transition flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+                title="এক ক্লিকে সকল পেমেন্ট নম্বর মুছে ফাঁকা করুন"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>সব নম্বর এক ক্লিকে মুছুন / ফাঁকা করুন</span>
+              </button>
             </div>
 
             <form onSubmit={handleSavePaymentSettings} className="space-y-4 pt-1">
@@ -2454,15 +2498,40 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                     <span className="w-2.5 h-2.5 rounded-full bg-pink-600 inline-block" />
                     বিকাশ (bKash) সেটিংস
                   </span>
+
+                  <div className="flex items-center gap-2">
+                    {paymentConfig.bkashNumber ? (
+                      <>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-pink-200/80 text-pink-900 font-mono">
+                          বর্তমান: {paymentConfig.bkashNumber}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleClearSinglePaymentNumber('bkash')}
+                          className="text-[11px] font-bold text-rose-600 hover:text-rose-800 bg-rose-100 hover:bg-rose-200 px-2 py-0.5 rounded-md transition flex items-center gap-1 cursor-pointer"
+                          title="বিকাশ নম্বর মুছে ফাঁকা করুন"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>নম্বর মুছুন</span>
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-200/80 text-slate-600">
+                        কোনো নম্বর নেই (ফাঁকা)
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">বিকাশ নম্বর (Phone Number)</label>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      বিকাশ নম্বর (Phone Number)
+                    </label>
                     <input
                       type="text"
                       value={paymentConfig.bkashNumber}
                       onChange={(e) => setPaymentConfig({ ...paymentConfig, bkashNumber: e.target.value })}
-                      placeholder="যেমন: 018XXXXXXXX"
+                      placeholder="যেমন: 018XXXXXXXX (ফাঁকা রাখতে খালি রাখুন)"
                       className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-pink-500/20"
                     />
                   </div>
@@ -2498,15 +2567,40 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                     <span className="w-2.5 h-2.5 rounded-full bg-orange-600 inline-block" />
                     নগদ (Nagad) সেটিংস
                   </span>
+
+                  <div className="flex items-center gap-2">
+                    {paymentConfig.nagadNumber ? (
+                      <>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-200/80 text-orange-900 font-mono">
+                          বর্তমান: {paymentConfig.nagadNumber}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleClearSinglePaymentNumber('nagad')}
+                          className="text-[11px] font-bold text-rose-600 hover:text-rose-800 bg-rose-100 hover:bg-rose-200 px-2 py-0.5 rounded-md transition flex items-center gap-1 cursor-pointer"
+                          title="নগদ নম্বর মুছে ফাঁকা করুন"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>নম্বর মুছুন</span>
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-200/80 text-slate-600">
+                        কোনো নম্বর নেই (ফাঁকা)
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">নগদ নম্বর (Phone Number)</label>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      নগদ নম্বর (Phone Number)
+                    </label>
                     <input
                       type="text"
                       value={paymentConfig.nagadNumber}
                       onChange={(e) => setPaymentConfig({ ...paymentConfig, nagadNumber: e.target.value })}
-                      placeholder="যেমন: 017XXXXXXXX"
+                      placeholder="যেমন: 017XXXXXXXX (ফাঁকা রাখতে খালি রাখুন)"
                       className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20"
                     />
                   </div>
@@ -2542,15 +2636,40 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                     <span className="w-2.5 h-2.5 rounded-full bg-purple-600 inline-block" />
                     রকেট (Rocket) সেটিংস
                   </span>
+
+                  <div className="flex items-center gap-2">
+                    {paymentConfig.rocketNumber ? (
+                      <>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-200/80 text-purple-900 font-mono">
+                          বর্তমান: {paymentConfig.rocketNumber}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleClearSinglePaymentNumber('rocket')}
+                          className="text-[11px] font-bold text-rose-600 hover:text-rose-800 bg-rose-100 hover:bg-rose-200 px-2 py-0.5 rounded-md transition flex items-center gap-1 cursor-pointer"
+                          title="রকেট নম্বর মুছে ফাঁকা করুন"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>নম্বর মুছুন</span>
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-200/80 text-slate-600">
+                        কোনো নম্বর নেই (ফাঁকা)
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">রকেট নম্বর (Phone Number with Check Digit)</label>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      রকেট নম্বর (Phone Number with Check Digit)
+                    </label>
                     <input
                       type="text"
                       value={paymentConfig.rocketNumber}
                       onChange={(e) => setPaymentConfig({ ...paymentConfig, rocketNumber: e.target.value })}
-                      placeholder="যেমন: 019XXXXXXXXX"
+                      placeholder="যেমন: 019XXXXXXXXX (ফাঁকা রাখতে খালি রাখুন)"
                       className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20"
                     />
                   </div>
@@ -2579,15 +2698,25 @@ export const AdminPanelScreen: React.FC<AdminPanelScreenProps> = ({
                 </div>
               </div>
 
-              <div className="flex justify-end pt-1">
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleClearAllPaymentNumbers}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 font-bold text-xs rounded-xl border border-slate-200 hover:border-rose-200 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>সব নম্বর মুছে ফাঁকা করুন (Clear All)</span>
+                </button>
+
                 <button
                   type="submit"
                   id="admin-save-payments-btn"
                   onClick={(e) => handleSaveSettings(e)}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
-                  <span>পেমেন্ট নম্বরসমূহ সংরক্ষণ করুন</span>
+                  <span>পেমেন্ট নম্বরসমূহ সংরক্ষণ করুন (Save / Update)</span>
                 </button>
               </div>
             </form>

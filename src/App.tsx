@@ -47,6 +47,7 @@ import {
   fetchFirestoreAppData,
   ensureFirestoreCollectionsAndSettings,
   sanitizeForFirestore,
+  updateFirestoreKey,
   saveSingleMemberToFirestore,
   deleteMemberFromFirestore,
   saveSingleDonorToFirestore,
@@ -323,6 +324,7 @@ export default function App() {
         ...cleanConfig,
         updatedAt: serverTimestamp()
       }, { merge: true });
+      await updateFirestoreKey('paymentConfig', cleanConfig);
       console.log('[Firestore SUCCESS] App handleUpdatePaymentConfig saved doc(settings, payment)');
     } catch (e) {
       console.warn('[Firestore] Payment config update fallback:', e);

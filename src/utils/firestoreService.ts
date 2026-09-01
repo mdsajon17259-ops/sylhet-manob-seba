@@ -35,10 +35,10 @@ export const DEFAULT_APP_DATA: AppFirestoreData = {
   funds: INITIAL_FUNDS,
   manualTotalBalance: null,
   paymentConfig: {
-    bkashNumber: '01886122678',
+    bkashNumber: '',
     bkashType: 'Personal',
     bkashInstructions: 'আপনার বিকাশ অ্যাপ থেকে উপরের নম্বরে Send Money করুন। রেফারেন্সে আপনার নাম বা মেম্বার আইডি লিখুন এবং সফল ট্রানজেকশনের TrxID নিচে সাবমিট করুন।',
-    nagadNumber: '01886122678',
+    nagadNumber: '',
     nagadType: 'Personal',
     nagadInstructions: 'নগদ অ্যাপ বা *167# ডায়াল করে Send Money করুন। সফল পেমেন্টের পর TrxID টি নিচের বক্সে লিখে সাবমিট করুন।',
     rocketNumber: '',
